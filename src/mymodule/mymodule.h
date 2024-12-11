@@ -1,0 +1,1 @@
+void mymodule_function();

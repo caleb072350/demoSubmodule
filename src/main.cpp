@@ -1,7 +1,7 @@
 #include <iostream>
 #include "absl/strings/str_join.h"  // 使用 Abseil 的字符串库
 
-#include "mymodule/mymodule.cpp" // 包含自定义模块
+#include "mymodule.h" // 包含自定义模块
 
 #include "base64.h"
 
