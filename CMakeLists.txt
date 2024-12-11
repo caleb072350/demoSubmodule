@@ -6,4 +6,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(abseil-cpp)
 
+add_subdirectory(aklomp-base64)
+
 add_subdirectory(src)

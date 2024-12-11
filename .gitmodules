@@ -1,3 +1,6 @@
 [submodule "abseil-cpp"]
 	path = abseil-cpp
 	url = https://github.com/abseil/abseil-cpp
+[submodule "aklomp-base64"]
+	path = aklomp-base64
+	url = https://github.com/aklomp/base64.git
