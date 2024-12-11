@@ -17,6 +17,16 @@ int main() {
 
     std::string encoded = base64Encode(str4);
     std::cout << str4 << " after encoded is : " << encoded << std::endl;
+    std::cout << encoded << " after decoded is : " << base64Decode(encoded) << std::endl;
+    std::string str5 = "Lucy";
+    encoded = base64Encode(str5);
+    std::cout << str5 << " after encoded is : " << encoded << std::endl;
+    std::cout << encoded << " after decoded is : " << base64Decode(encoded) << std::endl;
+
+    std::string file1 = "output.txt";
+    std::string file2 = "test2.txt";
+    // base64StreamEncode(file1, file2);
+    base64StreamDecode(file1, file2);
     return 0;
 }
 
