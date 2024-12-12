@@ -24,4 +24,10 @@ add_executable(googleTestF test/test_testF.cpp)
 target_link_libraries(googleTestF gtest gtest_main)
 add_test(NAME test2 COMMAND googleTestF)
 
+find_package(Boost REQUIRED COMPONENTS system thread filesystem)
+# 添加测试
+add_executable(boostTest test/test_boost.cpp)
+target_link_libraries(boostTest gtest gtest_main ${Boost_LIBRARIES})
+add_test(NAME test3 COMMAND boostTest)
+
 
