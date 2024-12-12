@@ -5,6 +5,12 @@
 
 #include "base64.h"
 
+#include "gtest/gtest.h"
+
+TEST(MyTest, Test1) {
+    ASSERT_EQ(1 + 1, 2);
+}
+
 int main() {
     std::string str1 = "Hello";
     std::string str2 = "Abseil";
@@ -27,6 +33,10 @@ int main() {
     std::string file2 = "test2.txt";
     // base64StreamEncode(file1, file2);
     base64StreamDecode(file1, file2);
+
+    // googletest 
+    ::testing::InitGoogleTest();
+    RUN_ALL_TESTS();
     return 0;
 }
 

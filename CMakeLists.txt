@@ -8,4 +8,6 @@ add_subdirectory(abseil-cpp)
 
 add_subdirectory(aklomp-base64)
 
+add_subdirectory(googletest)
+
 add_subdirectory(src)
