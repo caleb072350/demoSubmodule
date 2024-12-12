@@ -14,7 +14,7 @@ target_link_libraries(test mybase64 gtest gtest_main)
 
 enable_testing()
 # 添加测试
-add_executable(myProjectTest test/test_main.cpp)
+add_executable(myProjectTest test/test_googletest.cpp)
 target_link_libraries(myProjectTest gtest gtest_main)
 add_test(NAME test1 COMMAND myProjectTest)
 
