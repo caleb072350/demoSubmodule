@@ -32,4 +32,6 @@ add_test(NAME test3 COMMAND boostTest)
 
 add_subdirectory(testboost)
 
+add_subdirectory(sogo-workflow)
+
 
