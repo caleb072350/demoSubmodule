@@ -71,6 +71,9 @@
         "typeinfo": "cpp",
         "valarray": "cpp",
         "variant": "cpp",
-        "*.ipp": "c"
+        "*.ipp": "c",
+        "time.h": "c",
+        "unistd.h": "c",
+        "stdlib.h": "c"
     }
 }
