@@ -1,4 +1,4 @@
-#include <libaio.h>
+// #include <libaio.h>
 #include <iostream>
 #include <fcntl.h>
 #include <unistd.h>
@@ -6,10 +6,23 @@
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <errno.h>
+#include "IOService_linux.h"
+#include "IOService_linux.cc"
 
 #define BUFFER_SIZE 1024
 #define MAX_EVENTS  10
 #define EPOLL_TIMEOUT 1000 // 超时时间，单位：毫秒
+
+void prep_pread(struct iocb* cb, int fd, void *buf, size_t count, off_t offset) {
+	memset(cb, 0, sizeof(*cb));
+	cb->aio_fildes = fd;
+	cb->aio_lio_opcode = IO_CMD_PREAD;
+	cb->u.c.buf = buf;
+	cb->u.c.nbytes = count;
+	cb->u.c.offset = offset;
+}
+
+
 
 int main() {
     // 打开文件
@@ -71,7 +84,7 @@ int main() {
 
     // 初始化 iocb 结构体
     struct iocb cb;
-    io_prep_pread(&cb, fd, buffer, BUFFER_SIZE, 0);
+    prep_pread(&cb, fd, buffer, BUFFER_SIZE, 0);
     io_set_eventfd(&cb, efd);
 
     // 提交异步读请求
