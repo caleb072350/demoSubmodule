@@ -1,0 +1,112 @@
+# 这里记录一些常见的gdb调试命令
+
+## 用GDB加载可执行文件的符号表
+```gdb
+    gdb ./executable
+```
+
+## 加载完毕进入gdb后，开始执行程序
+```gdb
+    run # 或 r
+```
+
+## 传入参数
+```gdb
+    run arg1 arg2
+```
+
+## 断点管理
+### 设置断点
+```gdb
+    break main # 在main函数处设置断点
+    break filename.cpp:line_number # 在指定文件的特定行设置断点
+```
+### 查看所有断点
+```gdb
+    info breakpoints
+```
+### 删除断点
+```gdb
+    delete breakpoint_number
+```
+### 禁用断点
+```gdb
+    disable breakpoint_number
+```
+### 启用断点
+```gdb
+    enable breakpoint_number
+```
+
+## 程序控制
+### 继续执行
+```gdb
+    continue # 或 c
+```
+### 单步执行(进入函数)
+```gdb
+    step # 或 s
+```
+
+### 单步执行(不进入函数)
+```gdb
+    next # 或 n
+```
+
+### 结束当前函数并返回
+```gdb
+    finish
+```
+
+### 退出gdb
+```gdb
+    quit
+```
+
+## 查看信息
+### 查看当前调用堆栈
+```gdb
+    backtrace # 或 bt
+```
+### 查看当前局部变量
+```gdb
+    info locals
+```
+### 查看全局变量
+```gdb
+    info variables
+```
+### 查看特定变量的值
+```gdb
+    print variable_name # 或 p variable_name
+```
+### 查看内存地址
+```gdb
+    x/10x &variable_name # 查看变量地址的十六进制值
+```
+
+## 其他命令
+### 查看源代码
+```gdb
+    list # 或l 查看当前行附近的源码
+    list num # 或 l num 查看num行附近的源码
+    list filename.cpp:line_num # 查看特定文件的指定行的源码
+```
+### 设置观察点（监视变量的变化，有变化会打印）
+```gdb
+    watch variable_name
+```
+### 查看线程信息
+```gdb
+    info threads # 查看所有线程
+    thread thread_number # 切换到指定线程
+```
+### 切换到指定进程
+```gdb
+    attach pid 
+```
+
+### 设置条件断点
+```gdb
+    break function_name if condition # 仅在条件满足时触发断点
+```
