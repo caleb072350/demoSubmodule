@@ -3,7 +3,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <time.h>
+// #include <time.h>
 #include <openssl/ssl.h>
 
 typedef struct __poller poller_t;
@@ -68,7 +68,7 @@ struct poller_params
     size_t max_open_files;
     poller_queue_t *result_queue;
     poller_message_t *(*create_message)(void *);
-    int (*partial_written_(size_t, void *));
+    int (*partial_written)(size_t, void *);
 };
 
 #ifdef __cplusplus
@@ -77,7 +77,8 @@ extern "C"
 #endif
 
 poller_t *poller_create(const struct poller_params *params);
-
+void poller_destroy(poller_t *poller);
+int poller_start(poller_t *poller);
 int poller_add(const struct poller_data *data, int timeout, poller_t *poller);
 int poller_del(int fd, poller_t *poller);
 
