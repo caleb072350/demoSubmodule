@@ -81,6 +81,7 @@ static inline int __poller_add_timerfd(int fd, poller_t *poller) {
     return epoll_ctl(poller->pfd, EPOLL_CTL_ADD, fd, &ev);
 }
 
+// set timeout for timerfd
 static inline int __poller_set_timerfd(int fd, const struct timespec *abstime,
                                        poller_t *poller)
 {
@@ -207,7 +208,7 @@ void poller_queue_destroy(poller_queue_t *queue)
 	free(queue);
 }
 
-// 生产者？把结果放入队列，激活等待线程
+// 生产者？把结果放入put队列，激活等待线程
 static void __poller_add_result(struct __poller_node *res,
 								poller_t *poller)
 {
@@ -904,4 +905,202 @@ int poller_start(poller_t *poller)
 
 	pthread_mutex_unlock(&poller->mutex);
 	return -poller->stopped;
+}
+
+void poller_stop(poller_t *poller)
+{
+	poller_queue_t *queue = poller->params.result_queue;
+	struct __poller_node *node;
+	struct list_head *pos, *tmp;
+	void *p = NULL;
+
+	poller->stopping = 1;
+	pthread_mutex_lock(&queue->put_mutex);
+	pthread_cond_broadcast(&queue->put_cond);
+	pthread_mutex_unlock(&queue->put_mutex);
+
+	write(poller->pipe_wr, &p, sizeof (void *)); // 写管道，通知poller_wait线程处理终止
+	pthread_join(poller->tid, NULL); // 等待线程结束
+	poller->stopped = 1;
+
+	pthread_mutex_lock(&poller->mutex);
+	poller->nodes[poller->pipe_rd] = NULL;
+	poller->nodes[poller->pipe_wr] = NULL;
+	close(poller->pipe_wr);
+	__poller_handle_pipe(poller);
+	close(poller->pipe_rd);
+
+	poller->tree_first = NULL;
+	while (poller->timeo_tree.rb_node)
+	{
+		node = rb_entry(poller->timeo_tree.rb_node, struct __poller_node, rb);
+		rb_erase(&node->rb, &poller->timeo_tree);
+		list_add(&node->list, &poller->timeo_list);
+	}
+
+	list_splice_init(&poller->no_timeo_list, &poller->timeo_list);
+	list_for_each_safe(pos, tmp, &poller->timeo_list)
+	{
+		node = list_entry(pos, struct __poller_node, list);
+		list_del(&node->list);
+		__poller_add_result(node, poller);
+		if (node->data.fd >= 0)
+		{
+			poller->nodes[node->data.fd] = NULL;
+			__poller_del_fd(node->data.fd, node->event, poller);
+		}
+
+		node->error = 0;
+		node->state = PR_ST_STOPPED;
+		__poller_add_result(node, poller);
+	}
+
+	pthread_mutex_unlock(&poller->mutex);
+}
+
+int poller_mod(const struct poller_data *data,  int timeout, poller_t *poller)
+{
+	struct __poller_node *res = NULL;
+	struct __poller_node *node;
+	struct __poller_node *old;
+	int need_res;
+	int event;
+
+	if ((size_t) data->fd >= poller->params.max_open_files)
+	{
+		errno = data->fd < 0 ? EBADF : EMFILE;
+		return -1;
+	}
+
+	need_res = __poller_data_get_event(&event, data);
+	if (need_res < 0)
+		return -1;
+	
+	if (need_res)
+	{
+		res = (struct __poller_node *)malloc(sizeof (struct __poller_node));
+		if (!res)
+			return -1;
+	}
+
+	node = (struct __poller_node *)malloc(sizeof (struct __poller_node));
+	if (node)
+	{
+		node->data = *data;
+		node->event = event;
+		node->in_rbtree = 0;
+		node->removed = 0;
+		node->res = res;
+		if (timeout >= 0)
+		 	__poller_node_set_timeout(timeout, node);
+		
+		pthread_mutex_lock(&poller->mutex);
+		old = poller->nodes[data->fd];
+		if (old && old != POLLER_NODE_ERROR)
+		{
+			if (old->in_rbtree)
+			 	__poller_tree_erase(old, poller);
+			else 
+				list_del(&old->list);
+			
+			old->error = 0;
+			old->state = PR_ST_MODIFIED;
+			if (poller->stopped)
+				__poller_add_result(old, poller);
+			else
+			{
+				old->removed = 1;
+				write(poller->pipe_wr, &old, sizeof (void *));
+			}
+
+			if (timeout >= 0)
+			 	__poller_insert_node(node, poller);
+			else 
+				list_add_tail(&node->list, &poller->no_timeo_list);
+			
+			poller->nodes[data->fd] = node;
+			node = NULL;
+		} 
+		else if (old == POLLER_NODE_ERROR)
+			errno = EINVAL;
+		else 
+			errno = ENOENT;
+
+		pthread_mutex_unlock(&poller->mutex);
+		if (node == NULL)
+			return 0;
+		free(node);
+	} 
+
+	free(res);
+	return -1;
+}
+
+int poller_set_timeout(int fd, int timeout, poller_t *poller)
+{
+	struct __poller_node time_node;
+	struct __poller_node *node;
+
+	if ((size_t)fd >= poller->params.max_open_files)
+	{
+		errno = fd < 0 ? EBADF : EMFILE;
+		return -1;
+	}
+
+	if (timeout >= 0)
+	{
+		__poller_node_set_timeout(timeout, &time_node);
+	}
+
+	pthread_mutex_lock(&poller->mutex);
+	node = poller->nodes[fd];
+	if (node)
+	{
+		if (node->in_rbtree)
+			__poller_tree_erase(node, poller);
+		else 
+			list_del(&node->list);
+
+		if (timeout >= 0) 
+		{
+			node->timeout = time_node.timeout;
+			__poller_insert_node(node, poller);
+		} else 
+			list_add_tail(&node->list, &poller->no_timeo_list);
+	} else 
+		errno = ENOENT;
+	
+	pthread_mutex_unlock(&poller->mutex);
+	return -!node;
+}
+
+int poller_add_timer(void *context, const struct timespec *value,
+					 poller_t *poller)
+{
+	struct __poller_node *node;
+	node = (struct __poller_node *)malloc(sizeof (struct __poller_node));
+	if (!node)
+		return -1;
+	
+	memset(&node->data, 0, sizeof (struct poller_data));
+	node->data.operation = PD_OP_TIMER;
+	node->data.fd = -1;
+	node->data.context = context;
+	node->in_rbtree = 0;
+	node->removed = 0;
+	node->res = NULL;
+
+	clock_gettime(CLOCK_MONOTONIC, &node->timeout);
+	node->timeout.tv_sec += value->tv_sec;
+	node->timeout.tv_nsec += value->tv_nsec;
+	if (node->timeout.tv_nsec >= 1000000000)
+	{
+		node->timeout.tv_sec++;
+		node->timeout.tv_nsec -= 1000000000;
+	}
+
+	pthread_mutex_lock(&poller->mutex);
+	__poller_insert_node(node, poller);
+	pthread_mutex_unlock(&poller->mutex);
+	return 0;
 }

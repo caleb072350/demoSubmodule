@@ -114,9 +114,16 @@ extern "C"
 
 poller_t *poller_create(const struct poller_params *params);
 void poller_destroy(poller_t *poller);
+
 int poller_start(poller_t *poller);
+void poller_stop(poller_t *poller);
+
 int poller_add(const struct poller_data *data, int timeout, poller_t *poller);
 int poller_del(int fd, poller_t *poller);
+int poller_mod(const struct poller_data *data, int timeout, poller_t *poller);
+
+int poller_set_timeout(int fd, int timeout, poller_t *poller);
+int poller_add_timer(void *context, const struct timespec *timeout, poller_t *poller);
 
 poller_queue_t *poller_queue_create(size_t maxlen);
 
