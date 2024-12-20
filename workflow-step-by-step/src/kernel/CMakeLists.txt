@@ -16,4 +16,11 @@ add_executable(aio_exam linux_aio.cc linux_aio_utils.cc)
 
 add_executable(rbtree rbtreetest.c rbtree.c)
 
+# 查找线程库
+find_package(Threads REQUIRED)
+# 查找 OpenSSL
+find_package(OpenSSL REQUIRED)
 add_executable(poller pollertest.c poller.c rbtree.c)
+target_link_libraries(poller PRIVATE Threads::Threads OpenSSL::SSL OpenSSL::Crypto)
+
+add_executable(client clienttest.c)

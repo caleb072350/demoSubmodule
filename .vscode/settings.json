@@ -74,6 +74,7 @@
         "*.ipp": "c",
         "time.h": "c",
         "unistd.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "poller.h": "c"
     }
 }

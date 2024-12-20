@@ -3,10 +3,10 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
-// #include <time.h>
+#include "rbtree.h"
+#include "list.h"
 #include <openssl/ssl.h>
 
-typedef struct __poller poller_t;
 typedef struct __poller_queue poller_queue_t;
 typedef struct __poller_message poller_message_t;
 
@@ -16,7 +16,7 @@ struct __poller_message
     char data[0]; // 柔性数组
 };
 
-
+typedef struct __poller poller_t;
 
 struct poller_data
 {
@@ -69,6 +69,42 @@ struct poller_params
     poller_queue_t *result_queue;
     poller_message_t *(*create_message)(void *);
     int (*partial_written)(size_t, void *);
+};
+
+struct __poller_queue
+{
+    size_t res_max;
+    size_t res_cnt;
+    int nonblock;
+    struct list_head res_list1;
+    struct list_head res_list2;
+    struct list_head *get_list;
+    struct list_head *put_list;
+    pthread_mutex_t  get_mutex;
+    pthread_mutex_t  put_mutex;
+    pthread_cond_t   put_cond;
+    pthread_cond_t   get_cond;
+};
+
+#define POLLER_BUFSIZE			(256 * 1024)
+
+struct __poller
+{
+    struct poller_params params;
+    pthread_t tid;
+    int pfd;
+    int timerfd;
+    int pipe_rd;
+    int pipe_wr;
+    int stopping;
+    int stopped;
+    struct rb_root timeo_tree;
+    struct rb_node *tree_first;
+    struct list_head timeo_list;
+    struct list_head no_timeo_list;
+    struct __poller_node **nodes;
+    pthread_mutex_t mutex;
+    char buf[POLLER_BUFSIZE];
 };
 
 #ifdef __cplusplus

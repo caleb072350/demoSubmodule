@@ -4,30 +4,17 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <sys/uio.h>
 #include <errno.h>
 #include "list.h"
 #include "rbtree.h"
 #include "poller.h"
 
-#define POLLER_BUFSIZE			(256 * 1024)
 #define POLLER_NODES_MAX		65536
 #define POLLER_EVENTS_MAX		256
 #define POLLER_NODE_ERROR		((struct __poller_node *)-1)
 
-struct __poller_queue
-{
-    size_t res_max;
-    size_t res_cnt;
-    int nonblock;
-    struct list_head res_list1;
-    struct list_head res_list2;
-    struct list_head *get_list;
-    struct list_head *put_list;
-    pthread_mutex_t  get_mutex;
-    pthread_mutex_t  put_mutex;
-    pthread_cond_t   put_cond;
-    pthread_cond_t   get_cond;
-};
+typedef struct __poller poller_t;
 
 struct __poller_node
 {
@@ -44,25 +31,6 @@ struct __poller_node
 	int event;
 	struct timespec timeout;
 	struct __poller_node *res;
-};
-
-struct __poller
-{
-    struct poller_params params;
-    pthread_t tid;
-    int pfd;
-    int timerfd;
-    int pipe_rd;
-    int pipe_wr;
-    int stopping;
-    int stopped;
-    struct rb_root timeo_tree;
-    struct rb_node *tree_first;
-    struct list_head timeo_list;
-    struct list_head no_timeo_list;
-    struct __poller_node **nodes;
-    pthread_mutex_t mutex;
-    char buf[POLLER_BUFSIZE];
 };
 
 static inline int __poller_create_pfd()
@@ -378,6 +346,9 @@ int __poller_data_get_event(int *event, const struct poller_data *data)
 	case PD_OP_READ:
 		*event = EPOLLIN | EPOLLET;
 		return !!data->message; // 双感叹号作用是将任意非零值归一化为布尔意义上的1，并显示表示这是一个布尔结果
+    case PD_OP_LISTEN:
+        *event = EPOLLIN | EPOLLET;
+        return 1;
 	}
 }
 
@@ -650,6 +621,206 @@ static void __poller_set_timer(poller_t *poller)
 	pthread_mutex_unlock(&poller->mutex);
 }
 
+static void __poller_handle_listen(struct __poller_node *node,
+                                   poller_t *poller)
+{
+    struct __poller_node *res = node->res;
+    struct sockaddr_storage ss;
+    socklen_t len;
+    int sockfd;
+    void *p;
+
+    while (1) 
+    {
+        len = sizeof (struct sockaddr_storage);
+        sockfd = accept(node->data.fd, (struct sockaddr *)&ss, &len);
+        if (sockfd < 0) 
+        {
+            if (errno == EAGAIN)
+                return;
+            else
+                break;
+        }
+
+        p = node->data.accept((const struct sockaddr *)&ss, len, sockfd, node->data.context);
+        if (!p)
+            break;
+        
+        res->data = node->data;
+        res->data.result = p;
+        res->error = 0;
+        res->state = PR_ST_SUCCESS;
+        res->res = NULL;
+        __poller_add_result(res, poller);
+
+        res = (struct __poller_node *)malloc(sizeof (struct __poller_node));
+        node->res = res;
+        if (!res)
+            break;
+    }
+
+    if (__poller_remove_node(node, poller))
+        return;
+    
+    node->error = errno;
+    node->state = PR_ST_ERROR;
+    __poller_add_result(node, poller);
+}
+
+static void __poller_handle_connect(struct __poller_node *node,
+                                    poller_t *poller)
+{
+    socklen_t len = sizeof (int);
+    int error;
+
+    if (getsockopt(node->data.fd, SOL_SOCKET, SO_ERROR, &error, &len) < 0)
+        error = errno;
+    
+    if (__poller_remove_node(node, poller))
+        return;
+    
+    if (error == 0)
+    {
+        node->error = 0;
+        node->state = PR_ST_FINISHED;
+    } else 
+    {
+        node->error = error;
+        node->state = PR_ST_ERROR;
+    }
+
+    __poller_add_result(node, poller);
+}
+
+static void __poller_handle_read(struct __poller_node *node,
+                                 poller_t *poller)
+{
+    ssize_t nleft;
+    size_t n;
+    char *p;
+
+    while (1) 
+    {
+        p = poller->buf;
+        if (node->data.ssl)
+        {
+            nleft = SSL_read(node->data.ssl, p, POLLER_BUFSIZE);
+            if (nleft < 0)
+            {
+                return;
+            }
+        } else 
+        {
+            nleft = read(node->data.fd, p, POLLER_BUFSIZE);
+            if (nleft < 0)
+            {
+                if (errno == EAGAIN)
+                    return;
+            }
+        }
+        if (nleft <= 0)
+            break;
+        
+        do
+        {
+            n = nleft;
+            if (__poller_append_message(p, &n, node, poller) >= 0)
+            {
+                nleft -= n;
+                p += n;
+            } else 
+                nleft = -1;
+        } while (nleft > 0);
+        
+        if (nleft < 0)
+            break;
+    }
+
+    if (__poller_remove_node(node, poller))
+        return;
+    
+    if (nleft == 0)
+    {
+        node->error = 0;
+        node->state = PR_ST_FINISHED;
+    } else 
+    {
+        node->error = errno;
+        node->state = PR_ST_ERROR;
+    }
+
+    __poller_add_result(node, poller);
+}   
+
+#  define IOV_MAX	1024
+
+static void __poller_handle_write(struct __poller_node *node,
+                                  poller_t *poller)
+{
+    struct iovec *iov = node->data.write_iov;
+    size_t count = 0;
+    ssize_t nleft;
+    int iovcnt;
+    int ret;
+
+    while (node->data.iovcnt > 0 && iov->iov_len == 0)
+    {
+        iov++;
+        node->data.iovcnt--;
+    }
+
+    while (node->data.iovcnt > 0)
+    {
+        if (node->data.ssl)
+        {
+            nleft = SSL_write(node->data.ssl, iov->iov_base, iov->iov_len);
+            if (nleft <= 0) 
+            {
+                break;
+            }
+        } else 
+        {
+            iovcnt = node->data.iovcnt;
+            if (iovcnt > IOV_MAX)
+                iovcnt = IOV_MAX;
+            
+            nleft = writev(node->data.fd, iov, iovcnt);
+            if (nleft < 0)
+            {
+                ret = errno == EAGAIN ? 0 : -1;
+                break;
+            }
+        }
+
+        count += nleft;
+
+    }
+}         
+
+static int __poller_handle_pipe(poller_t *poller)
+{
+    struct __poller_node **node = (struct __poller_node **)poller->buf;
+    int stop = 0;
+    int n;
+    int i;
+
+    n = read(poller->pipe_rd, node, POLLER_BUFSIZE) / sizeof(void *);
+    for (i = 0; i < n; i++)
+    {
+        if (node[i])
+            __poller_add_result(node[i], poller);
+        else
+            stop = 1;
+    }
+    return stop;
+}
+
+static void __poller_handle_timeout(const struct __poller_node *time_node,
+                                    poller_t *poller)
+{
+
+}
+
 static void *__poller_thread_routine(void *arg)
 {
 	poller_t *poller = (poller_t *)arg;
@@ -682,6 +853,8 @@ static void *__poller_thread_routine(void *arg)
 				case PD_OP_LISTEN:
 					__poller_handle_listen(node, poller);
 					break;
+                case PD_OP_CONNECT:
+                    __poller_handle_connect(node, poller);
 				default:
 					break;
 				}
