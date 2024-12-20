@@ -33,21 +33,9 @@ int main() {
         .partial_written = NULL,
     };
 
-    poller_queue_t queue = {
-        .res_max = 1024,
-        .res_cnt = 0,
-    };
-    queue.put_list = malloc(sizeof(struct list_head));
-    queue.get_list = malloc(sizeof(struct list_head));
-    pthread_mutex_init(&queue.put_mutex, NULL);
-    pthread_mutex_init(&queue.get_mutex, NULL);
-    pthread_cond_init(&queue.get_cond, NULL);
-    pthread_cond_init(&queue.put_cond, NULL);
+    poller_queue_t *queue = poller_queue_create(1024);
 
-    INIT_LIST_HEAD(queue.put_list);
-    INIT_LIST_HEAD(queue.get_list);
-
-    params.result_queue = &queue;
+    params.result_queue = queue;
 
     poller_t *poller = poller_create(&params);
     if (!poller) {

@@ -207,6 +207,7 @@ void poller_queue_destroy(poller_queue_t *queue)
 	free(queue);
 }
 
+// 生产者？把结果放入队列，激活等待线程
 static void __poller_add_result(struct __poller_node *res,
 								poller_t *poller)
 {
@@ -236,6 +237,7 @@ static inline long __timeout_cmp(const struct __poller_node *node1,
 	return ret;
 }
 
+// 插入红黑树
 static void __poller_tree_insert(struct __poller_node *node, poller_t *poller)
 {
 	struct rb_node **p = &poller->timeo_tree.rb_node;

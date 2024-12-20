@@ -118,6 +118,8 @@ int poller_start(poller_t *poller);
 int poller_add(const struct poller_data *data, int timeout, poller_t *poller);
 int poller_del(int fd, poller_t *poller);
 
+poller_queue_t *poller_queue_create(size_t maxlen);
+
 #ifdef __cplusplus
 }
 #endif
