@@ -75,6 +75,8 @@
         "time.h": "c",
         "unistd.h": "c",
         "stdlib.h": "c",
-        "poller.h": "c"
+        "poller.h": "c",
+        "complex": "cpp",
+        "source_location": "cpp"
     }
 }

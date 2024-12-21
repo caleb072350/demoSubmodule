@@ -22,8 +22,6 @@ void prep_pread(struct iocb* cb, int fd, void *buf, size_t count, off_t offset) 
 	cb->u.c.offset = offset;
 }
 
-
-
 int main() {
     // 打开文件
     int fd = open("example.txt", O_RDONLY | O_DIRECT);
