@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <errno.h>
+#include <string.h>
 #include "list.h"
 #include "rbtree.h"
 #include "poller.h"

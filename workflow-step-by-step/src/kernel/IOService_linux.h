@@ -27,8 +27,8 @@ protected:
     long get_res() { return this->res; }
 
 private:
-    char iocb_buf[64];
-    long res;
+	char iocb_buf[64];
+	long res;
 
 private:
     struct list_head list;
@@ -36,6 +36,7 @@ private:
 public:
     virtual ~IOSession() {}
     friend class IOService;
+    friend class Communicator;
 };
 
 class IOService

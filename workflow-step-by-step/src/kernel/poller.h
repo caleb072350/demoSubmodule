@@ -126,6 +126,9 @@ int poller_set_timeout(int fd, int timeout, poller_t *poller);
 int poller_add_timer(void *context, const struct timespec *timeout, poller_t *poller);
 
 poller_queue_t *poller_queue_create(size_t maxlen);
+struct poller_result *poller_queue_get(poller_queue_t *queue);
+void poller_queue_set_nonblock(poller_queue_t *queue);
+void poller_queue_destroy(poller_queue_t *queue);
 
 #ifdef __cplusplus
 }

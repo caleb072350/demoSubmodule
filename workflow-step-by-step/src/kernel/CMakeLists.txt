@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(testpool)
+project(kernel)
 
 find_package(Threads REQUIRED)
 
@@ -24,3 +24,18 @@ add_executable(poller pollertest.c poller.c rbtree.c)
 target_link_libraries(poller PRIVATE Threads::Threads OpenSSL::SSL OpenSSL::Crypto)
 
 add_executable(client clienttest.c)
+
+set(SRC
+	IOService_linux.cc
+	mpoller.c
+	poller.c
+	rbtree.c
+	thrdpool.c
+	CommRequest.cc
+	CommScheduler.cc
+	Communicator.cc
+	Executor.cc
+	SubTask.cc
+)
+
+add_library(${PROJECT_NAME} OBJECT ${SRC})

@@ -126,8 +126,8 @@ thrdpool_t *thrdpool_create(size_t nthreads, size_t stacksize)
                 pool->nthreads = 0;
                 memset(&pool->tid, 0, sizeof(pthread_t));
                 pool->terminate = NULL;
-                if (__thrdpool_create_threads(nthreads, pool) >= 0) return pool;
-
+                if (__thrdpool_create_threads(nthreads, pool) >= 0)
+                    return pool;
                 pthread_key_delete(pool->key);
             } else
                 errno = ret;

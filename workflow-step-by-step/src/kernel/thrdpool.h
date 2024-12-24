@@ -25,4 +25,5 @@ void thrdpool_destroy(void (*pending)(const struct thrdpool_task *), thrdpool_t 
 #ifdef  __cplusplus
 }
 #endif
+
 #endif
