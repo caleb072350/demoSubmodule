@@ -1053,16 +1053,16 @@ void Communicator::handler_thread_routine(void *context)
 		case PD_OP_LISTEN:
 			comm->handle_listen_result(res);
 			break;
-		case PD_OP_SSL_ACCEPT:
-			comm->handle_ssl_accept_result(res);
-			break;
+		// case PD_OP_SSL_ACCEPT:
+		// 	comm->handle_ssl_accept_result(res);
+		// 	break;
 		case PD_OP_EVENT:
 		case PD_OP_NOTIFY:
 			comm->handle_aio_result(res);
 			break;
-		case PD_OP_TIMER:
-			comm->handle_sleep_result(res);
-			break;
+		// case PD_OP_TIMER:
+		// 	comm->handle_sleep_result(res);
+		// 	break;
 		}
 
 		free(res);

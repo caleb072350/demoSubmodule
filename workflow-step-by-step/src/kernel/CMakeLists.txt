@@ -38,4 +38,9 @@ set(SRC
 	SubTask.cc
 )
 
-add_library(${PROJECT_NAME} OBJECT ${SRC})
+find_package(OpenSSL REQUIRED)
+find_package(Threads REQUIRED)
+
+add_library(${PROJECT_NAME} STATIC ${SRC})
+target_link_libraries(${PROJECT_NAME} PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${CMAKE_THREAD_LIBS_INIT})

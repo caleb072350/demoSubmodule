@@ -12,7 +12,7 @@
 #include "Communicator.h"
 #include "CommScheduler.h"
 #include "CommRequest.h"
-#include "SleepRequest.h"
+// #include "SleepRequest.h"
 #include "IORequest.h"
 #include "Workflow.h"
 #include "WFConnection.h"
@@ -255,7 +255,7 @@ public:
 	virtual WFConnection *get_connection() const;
 
 public:
-	/* All in milleseconds. timeout == -1 for unlimited. */
+	/* All in milliseconds. timeout == -1 for unlimited. */
 	void set_send_timeout(int timeout) { this->send_timeo = timeout; }
 	void set_receive_timeout(int timeout) { this->receive_timeo = timeout; }
 	void set_keep_alive(int timeout) { this->keep_alive_timeo = timeout; }
@@ -316,57 +316,57 @@ protected:
 	virtual ~WFNetworkTask() { }
 };
 
-class WFTimerTask : public SleepRequest
-{
-public:
-	void start()
-	{
-		assert(!series_of(this));
-		Workflow::start_series_work(this, nullptr);
-	}
+// class WFTimerTask : public SleepRequest
+// {
+// public:
+// 	void start()
+// 	{
+// 		assert(!series_of(this));
+// 		Workflow::start_series_work(this, nullptr);
+// 	}
 
-	void dismiss()
-	{
-		assert(!series_of(this));
-		delete this;
-	}
+// 	void dismiss()
+// 	{
+// 		assert(!series_of(this));
+// 		delete this;
+// 	}
 
-public:
-	void *user_data;
+// public:
+// 	void *user_data;
 
-public:
-	int get_state() const { return this->state; }
-	int get_error() const { return this->error; }
+// public:
+// 	int get_state() const { return this->state; }
+// 	int get_error() const { return this->error; }
 
-protected:
-	virtual SubTask *done()
-	{
-		SeriesWork *series = series_of(this);
+// protected:
+// 	virtual SubTask *done()
+// 	{
+// 		SeriesWork *series = series_of(this);
 
-		if (this->callback)
-			this->callback(this);
+// 		if (this->callback)
+// 			this->callback(this);
 
-		delete this;
-		return series->pop();
-	}
+// 		delete this;
+// 		return series->pop();
+// 	}
 
-protected:
-	std::function<void (WFTimerTask *)> callback;
+// protected:
+// 	std::function<void (WFTimerTask *)> callback;
 
-public:
-	WFTimerTask(CommScheduler *scheduler,
-				std::function<void (WFTimerTask *)> cb) :
-		SleepRequest(scheduler),
-		callback(std::move(cb))
-	{
-		this->user_data = NULL;
-		this->state = WFT_STATE_UNDEFINED;
-		this->error = 0;
-	}
+// public:
+// 	WFTimerTask(CommScheduler *scheduler,
+// 				std::function<void (WFTimerTask *)> cb) :
+// 		SleepRequest(scheduler),
+// 		callback(std::move(cb))
+// 	{
+// 		this->user_data = NULL;
+// 		this->state = WFT_STATE_UNDEFINED;
+// 		this->error = 0;
+// 	}
 
-protected:
-	virtual ~WFTimerTask() { }
-};
+// protected:
+// 	virtual ~WFTimerTask() { }
+// };
 
 template<class ARGS>
 class WFFileTask : public IORequest

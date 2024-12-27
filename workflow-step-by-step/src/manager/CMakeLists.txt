@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.6)
+project(manager)
+
+set(SRC
+	DNSCache.cc
+	RouteManager.cc
+	WFGlobal.cc
+)
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../util/)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../kernel/)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../factory/)
+
+add_library(${PROJECT_NAME} STATIC ${SRC})
+target_link_libraries(${PROJECT_NAME} kernel)
