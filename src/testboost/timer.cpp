@@ -10,10 +10,10 @@ void handler2(const boost::system::error_code &ec) {
 }
 
 int main() {
-    boost::asio::io_service io_service;
-    boost::asio::deadline_timer timer1(io_service, boost::posix_time::seconds(5));
+    boost::asio::io_context io_context;
+    boost::asio::deadline_timer timer1(io_context, boost::posix_time::seconds(5));
     timer1.async_wait(handler1);
-    boost::asio::deadline_timer timer2(io_service, boost::posix_time::seconds(10));
+    boost::asio::deadline_timer timer2(io_context, boost::posix_time::seconds(10));
     timer2.async_wait(handler2);
-    io_service.run();
+    io_context.run();
 }

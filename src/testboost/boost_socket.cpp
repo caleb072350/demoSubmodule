@@ -3,9 +3,9 @@
 #include <iostream>
 #include <string>
 
-boost::asio::io_service io_service;
-boost::asio::ip::tcp::resolver resolver(io_service);
-boost::asio::ip::tcp::socket sock(io_service);
+boost::asio::io_context io_context;
+boost::asio::ip::tcp::resolver resolver(io_context);
+boost::asio::ip::tcp::socket sock(io_context);
 boost::array<char, 4096> buffer;
 
 void read_handler(const boost::system::error_code &ec, std::size_t bytes_transferred) {
@@ -15,7 +15,7 @@ void read_handler(const boost::system::error_code &ec, std::size_t bytes_transfe
     }
 }
 
-void connect_handler(const boost::system::error_code &ec) {
+void connect_handler(const boost::system::error_code &ec, const boost::asio::ip::tcp::endpoint& /*endpoint*/) {
     if (!ec) {
         // 构造 HTTP GET 请求
         std::string request = "GET / HTTP/1.1\r\n"
@@ -27,14 +27,14 @@ void connect_handler(const boost::system::error_code &ec) {
     }
 }
 
-void resolve_handler(const boost::system::error_code &ec, boost::asio::ip::tcp::resolver::iterator it) {
+void resolve_handler(const boost::system::error_code &ec,  const boost::asio::ip::tcp::resolver::results_type results) {
     if(!ec) {
-        sock.async_connect(*it, connect_handler);
+        boost::asio::async_connect(sock, results, connect_handler);
     }
 }
 
 int main() {
-    boost::asio::ip::tcp::resolver::query query("www.highscore.de", "80");
-    resolver.async_resolve(query, resolve_handler);
-    io_service.run();
+    resolver.async_resolve("www.highscore.de", "80", resolve_handler);
+    io_context.run();
+    return 0;
 }
