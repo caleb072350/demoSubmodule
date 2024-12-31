@@ -75,6 +75,18 @@ int http_parser_set_method(const char *method, http_parser_t *parser)
 	return -1;
 }
 
+int http_parser_set_uri(const char *uri, http_parser_t *parser)
+{
+	uri = strdup(uri);
+	if (uri)
+	{
+		free(parser->uri);
+		parser->uri = (char *)uri;
+		return 0;
+	}
+	return -1;
+}
+
 int http_parser_set_version(const char *version, http_parser_t *parser)
 {
 	version = strdup(version);

@@ -442,3 +442,27 @@ RouteManager *WFGlobal::get_route_manager()
 	return __CommManager::get_instance()->get_route_manager();
 }
 
+const char *WFGlobal::get_default_port(const std::string& scheme)
+{
+	return __WFGlobal::get_instance()->get_default_port(scheme);
+}
+
+ExecQueue *WFGlobal::get_dns_queue()
+{
+	return __CommManager::get_instance()->get_dns_queue();
+}
+
+Executor *WFGlobal::get_dns_executor()
+{
+	return __CommManager::get_instance()->get_dns_executor();
+}
+
+SSL_CTX *WFGlobal::get_ssl_client_ctx()
+{
+	return __SSLManager::get_instance()->get_ssl_client_ctx();
+}
+
+const WFGlobalSettings *WFGlobal::get_global_settings()
+{
+	return __WFGlobal::get_instance()->get_global_settings();
+}

@@ -82,7 +82,7 @@ void wget_callback(WFHttpTask *task)
     fprintf(stderr, "\nSuccess. Press Ctrl-C to exit.\n");
 }
 
-void sig_handler(int signo) { }
+void sig_handler(int signo) { exit(0); }
 
 int main(int argc, char *argv[])
 {

@@ -61,6 +61,72 @@ int ComplexHttpTask::keep_alive_timeout()
 
 bool ComplexHttpTask::init_success()
 {
+	HttpRequest *client_req = this->get_req();
+	std::string request_uri;
+	std::string header_host;
+	bool is_ssl;
+	bool is_unix = false;
+
+	if (uri_.scheme && strcasecmp(uri_.scheme, "http") == 0)
+		is_ssl = false;
+	else if (uri_.scheme && strcasecmp(uri_.scheme, "https") == 0)
+		is_ssl = true;
+	else
+	{
+		this->state = WFT_STATE_TASK_ERROR;
+		this->error = WFT_ERR_URI_SCHEME_INVALID;
+		this->set_empty_request();
+		return false;
+	}
+
+	//todo http+unix
+	//https://stackoverflow.com/questions/26964595/whats-the-correct-way-to-use-a-unix-domain-socket-in-requests-framework
+	//https://stackoverflow.com/questions/27037990/connecting-to-postgres-via-database-url-and-unix-socket-in-rails
+
+	if (uri_.path && uri_.path[0])
+		request_uri = uri_.path;
+	else
+		request_uri = "/";
+	
+	if (uri_.query && uri_.query[0])
+	{
+		request_uri += "?";
+		request_uri += uri_.query;
+	}
+
+	if (uri_.host && uri_.host[0])
+	{
+		header_host = uri_.host;
+		if (uri_.host[0] == '/')
+			is_unix = true;
+	}
+
+	if (!is_unix && uri_.port && uri_.port[0])
+	{
+		int port = atoi(uri_.port);
+
+		if (is_ssl)
+		{
+			if (port != 443)
+			{
+				header_host += ":";
+				header_host += uri_.port;
+			}
+		}
+		else
+		{
+			if (port != 80)
+			{
+				header_host += ":";
+				header_host += uri_.port;
+			}
+		}
+	}
+
+	this->WFComplexClientTask::set_type(is_ssl ? TT_TCP_SSL : TT_TCP);
+	client_req->set_request_uri(request_uri.c_str());
+	client_req->set_header_pair("Host", header_host.c_str());
+
 	return true;
 }
 
