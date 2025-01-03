@@ -110,8 +110,7 @@ int http_parser_set_header(const void *name, size_t name_len,
 	list_for_each(pos, &parser->header_list)
 	{
 		line = list_entry(pos, struct __header_line, list);
-		if (line->name_len == name_len &&
-			strncasecmp(line->buf, name, name_len) == 0)
+		if (line->name_len == name_len && strncasecmp(line->buf, name, name_len) == 0)
 		{
 			if (value_len > line->value_len)
 			{
@@ -174,10 +173,7 @@ static int __match_request_line(const char *method,
 	return -1;
 }
 
-static int __match_status_line(const char *version,
-							   const char *code,
-							   const char *phrase,
-							   http_parser_t *parser)
+static int __match_status_line(const char *version, const char *code, const char *phrase, http_parser_t *parser)
 {
 	if (strcmp(version, "HTTP/1.0") == 0 || strncmp(version, "HTTP/0", 6) == 0)
 		parser->keep_alive = 0;
@@ -417,13 +413,36 @@ static int __parse_header_value(const char *ptr, size_t len,
     }
 
     header_value[i] = '\0';
-    if (__match_message_header(parser->namebuf, strlen(parser->namebuf),
-                               header_value, i, parser) < 0)
+    if (__match_message_header(parser->namebuf, strlen(parser->namebuf), header_value, i, parser) < 0)
         return -1;
     parser->header_offset += ptr - begin;
     parser->header_state = HPS_HEADER_NAME;
     return 1;
-}                    
+}   
+
+static int __parse_message_header(const void *message, size_t size, http_parser_t *parser)
+{
+	const  char *ptr;
+	size_t len;
+	int ret;
+
+	do 
+	{
+		ptr = (const char *)message + parser->header_offset;
+		len = size - parser->header_offset;
+		if (parser->header_state == HPS_START_LINE)
+			ret = __parse_start_line(ptr, len, parser);
+		else if (parser->header_state == HPS_HEADER_VALUE)
+			ret = __parse_header_value(ptr, len, parser);
+		else
+		{
+			ret = __parse_header_name(ptr, len, parser);
+			if (parser->header_state == HPS_HEADER_COMPLETE)
+				return 1;
+		}
+	} while (ret > 0);
+	return ret;
+}
 
 void http_parser_init(int is_resp, http_parser_t *parser)
 {
@@ -452,9 +471,175 @@ int http_parser_header_complete(http_parser_t *parser)
 	return parser->header_state == HPS_HEADER_COMPLETE;
 }
 
-int http_parser_append_message(const void *buf, size_t *n,
-							   http_parser_t *parser)
+#define CHUNK_SIZE_MAX		(2 * 1024 * 1024 * 1024U - HTTP_CHUNK_LINE_MAX - 4)
+
+static int __parse_chunk_data(const char *ptr, size_t len,
+							  http_parser_t *parser)
 {
+	char chunk_line[HTTP_CHUNK_LINE_MAX];
+	size_t min = MIN(HTTP_CHUNK_LINE_MAX, len);
+	long chunk_size;
+	char *end;
+	size_t i;
+
+	for (i = 0; i < min; i++)
+	{
+		chunk_line[i] = ptr[i];
+		if (chunk_line[i] == '\r')
+		{
+			if (i == len - 1)
+				return 0;
+
+			if (ptr[i + 1] != '\n')
+				return -2;
+
+			chunk_line[i] = '\0';
+			chunk_size = strtol(chunk_line, &end, 16);
+			if (end == chunk_line)
+				return -2;
+
+			if (chunk_size == 0)
+			{
+				chunk_size = i + 2;
+				parser->chunk_state = CPS_TRAILER_PART;
+			}
+			else if ((unsigned long)chunk_size < CHUNK_SIZE_MAX)
+			{
+				chunk_size += i + 4;
+				if (len < (size_t)chunk_size)
+					return 0;
+			}
+			else
+				return -2;
+
+			parser->chunk_offset += chunk_size;
+			return 1;
+		}
+	}
+
+	if (i == HTTP_CHUNK_LINE_MAX)
+		return -2;
+
+	return 0;
+}
+
+static int __parse_trailer_part(const char *ptr, size_t len,
+								http_parser_t *parser)
+{
+	size_t min = MIN(HTTP_TRAILER_LINE_MAX, len);
+	size_t i;
+
+	for (i = 0; i < min; i++)
+	{
+		if (ptr[i] == '\r')
+		{
+			if (i == len - 1)
+				return 0;
+
+			if (ptr[i + 1] != '\n')
+				return -2;
+
+			parser->chunk_offset += i + 2;
+			if (i == 0)
+				parser->chunk_state = CPS_CHUNK_COMPLETE;
+
+			return 1;
+		}
+	}
+
+	if (i == HTTP_TRAILER_LINE_MAX)
+		return -2;
+
+	return 0;
+}
+
+static int __parse_chunk(const void *message, size_t size, http_parser_t *parser)
+{
+	const char *ptr;
+	size_t len;
+	int ret;
+
+	do
+	{
+		ptr = (const char*)message + parser->chunk_offset;
+		len = size - parser->chunk_offset;
+		if (parser->chunk_state == CPS_CHUNK_DATA)
+			ret = __parse_chunk_data(ptr, len, parser);
+		else /* if (parser->chunk_state == CPS_TRALIER_PART)*/
+		{
+			ret = __parse_trailer_part(ptr, len, parser);
+			if (parser->chunk_state == CPS_CHUNK_COMPLETE)
+				return 1;
+		}
+	} while (ret > 0);
+	return ret;
+}
+
+int http_parser_append_message(const void *buf, size_t *n, http_parser_t *parser)
+{
+	int ret;
+	if (parser->complete)
+	{
+		*n = 0;
+		return 1;
+	}
+
+	if (parser->msgsize + *n + 1 > parser->bufsize)
+	{
+		size_t new_size = MAX(HTTP_MSGBUF_INIT_SIZE, 2 * parser->bufsize);
+		void *new_base;
+
+		while (new_size < parser->msgsize + *n + 1)
+			new_size *= 2;
+		
+		new_base = realloc(parser->msgbuf, new_size);
+		if (!new_base)
+			return -1;
+		parser->msgbuf = new_base;
+		parser->bufsize = new_size;
+	}
+
+	memcpy((char *)parser->msgbuf + parser->msgsize, buf, *n);
+	parser->msgsize += *n;
+	if (parser->header_state != HPS_HEADER_COMPLETE)
+	{
+		ret = __parse_message_header(parser->msgbuf, parser->msgsize, parser);
+		if (ret <= 0)
+			return ret;
+		if (parser->chunked)
+		{
+			parser->chunk_offset = parser->header_offset;
+			parser->chunk_state = CPS_CHUNK_DATA;
+		}
+		else if (parser->transfer_length == (size_t)-1)
+			parser->transfer_length = parser->content_length;
+	}
+
+	if (parser->transfer_length != (size_t)-1)
+	{
+		size_t total = parser->header_offset + parser->transfer_length;
+		if (parser->msgsize >= total)
+		{
+			*n -= parser->msgsize - total;
+			parser->msgsize = total;
+			parser->complete = 1;
+			return 1;
+		}
+		return 0;
+	}
+
+	if (!parser->chunked)
+		return 0;
+	
+	if (parser->chunk_state != CPS_CHUNK_COMPLETE)
+	{
+		ret = __parse_chunk(parser->msgbuf, parser->msgsize, parser);
+		if (ret <= 0)
+			return ret;
+	}
+	*n -= parser->msgsize - parser->chunk_offset;
+	parser->msgsize = parser->chunk_offset;
+	parser->complete = 1;
 	return 1;
 }						   
 

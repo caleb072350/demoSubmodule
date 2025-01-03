@@ -5,10 +5,10 @@ set(SRC
 	StringUtil.cc
 	URIParser.cc
 	MD5Util.cc
+	logger.cc
 )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../kernel/)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../util/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../protocol/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../algorithm/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../manager/)

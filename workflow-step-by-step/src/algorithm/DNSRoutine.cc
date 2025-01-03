@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <sys/un.h>
 #include "DNSRoutine.h"
+#include "logger.h"
 
 #define PORT_STR_MAX	5
 
@@ -32,6 +33,8 @@ DNSOutput& DNSOutput::operator= (DNSOutput&& move)
 
 void DNSRoutine::run(const DNSInput *in, DNSOutput *out)
 {
+	LOG_INFO("DNSInput: {}, DNSOutput: {}", (void *)in, (void *)out);
+	LOG_INFO("in->host: {}", in->host_);
 	if (!in->host_.empty() && in->host_[0] == '/')
 	{
 		out->error_ = 0;

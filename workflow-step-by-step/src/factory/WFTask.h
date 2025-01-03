@@ -12,7 +12,7 @@
 #include "Communicator.h"
 #include "CommScheduler.h"
 #include "CommRequest.h"
-// #include "SleepRequest.h"
+#include "SleepRequest.h"
 #include "IORequest.h"
 #include "Workflow.h"
 #include "WFConnection.h"
@@ -205,6 +205,7 @@ public:
 	void start()
 	{
 		assert(!series_of(this));
+		LOG_INFO("WFNetworkTask::start");
 		Workflow::start_series_work(this, nullptr);
 	}
 
@@ -311,65 +312,13 @@ protected:
 		this->timeout_reason = TOR_NOT_TIMEOUT;
 		this->state = WFT_STATE_UNDEFINED;
 		this->error = 0;
+		LOG_INFO("WFNetworkTask(null, WFGlobal::get_scheduler, wget_callback)");
 	}
 
 	virtual ~WFNetworkTask() { }
 };
 
-// class WFTimerTask : public SleepRequest
-// {
-// public:
-// 	void start()
-// 	{
-// 		assert(!series_of(this));
-// 		Workflow::start_series_work(this, nullptr);
-// 	}
-
-// 	void dismiss()
-// 	{
-// 		assert(!series_of(this));
-// 		delete this;
-// 	}
-
-// public:
-// 	void *user_data;
-
-// public:
-// 	int get_state() const { return this->state; }
-// 	int get_error() const { return this->error; }
-
-// protected:
-// 	virtual SubTask *done()
-// 	{
-// 		SeriesWork *series = series_of(this);
-
-// 		if (this->callback)
-// 			this->callback(this);
-
-// 		delete this;
-// 		return series->pop();
-// 	}
-
-// protected:
-// 	std::function<void (WFTimerTask *)> callback;
-
-// public:
-// 	WFTimerTask(CommScheduler *scheduler,
-// 				std::function<void (WFTimerTask *)> cb) :
-// 		SleepRequest(scheduler),
-// 		callback(std::move(cb))
-// 	{
-// 		this->user_data = NULL;
-// 		this->state = WFT_STATE_UNDEFINED;
-// 		this->error = 0;
-// 	}
-
-// protected:
-// 	virtual ~WFTimerTask() { }
-// };
-
-template<class ARGS>
-class WFFileTask : public IORequest
+class WFTimerTask : public SleepRequest
 {
 public:
 	void start()
@@ -385,28 +334,11 @@ public:
 	}
 
 public:
-	ARGS *get_args() { return &this->args; }
-
-	long get_retval()
-	{
-		if (this->state == WFT_STATE_SUCCESS)
-			return this->get_res();
-		else
-			return -1;
-	}
-
-public:
 	void *user_data;
 
 public:
 	int get_state() const { return this->state; }
 	int get_error() const { return this->error; }
-
-public:
-	void set_callback(std::function<void (WFFileTask<ARGS> *)> cb)
-	{
-		this->callback = std::move(cb);
-	}
 
 protected:
 	virtual SubTask *done()
@@ -421,13 +353,12 @@ protected:
 	}
 
 protected:
-	ARGS args;
-	std::function<void (WFFileTask<ARGS> *)> callback;
+	std::function<void (WFTimerTask *)> callback;
 
 public:
-	WFFileTask(IOService *service,
-			   std::function<void (WFFileTask<ARGS> *)>&& cb) :
-		IORequest(service),
+	WFTimerTask(CommScheduler *scheduler,
+				std::function<void (WFTimerTask *)> cb) :
+		SleepRequest(scheduler),
 		callback(std::move(cb))
 	{
 		this->user_data = NULL;
@@ -436,7 +367,7 @@ public:
 	}
 
 protected:
-	virtual ~WFFileTask() { }
+	virtual ~WFTimerTask() { }
 };
 
 class WFGenericTask : public SubTask
@@ -491,112 +422,6 @@ protected:
 	virtual ~WFGenericTask() { }
 };
 
-class WFCounterTask : public WFGenericTask
-{
-public:
-	virtual void count()
-	{
-		if (--this->value == 0)
-		{
-			this->state = WFT_STATE_SUCCESS;
-			this->subtask_done();
-		}
-	}
-
-public:
-	void set_callback(std::function<void (WFCounterTask *)> cb)
-	{
-		this->callback = std::move(cb);
-	}
-
-protected:
-	virtual void dispatch()
-	{
-		this->WFCounterTask::count();
-	}
-
-	virtual SubTask *done()
-	{
-		SeriesWork *series = series_of(this);
-
-		if (this->callback)
-			this->callback(this);
-
-		delete this;
-		return series->pop();
-	}
-
-protected:
-	std::atomic<unsigned int> value;
-	std::function<void (WFCounterTask *)> callback;
-
-public:
-	WFCounterTask(unsigned int target_value,
-				  std::function<void (WFCounterTask *)>&& cb) :
-		value(target_value + 1),
-		callback(std::move(cb))
-	{
-	}
-
-protected:
-	virtual ~WFCounterTask() { }
-};
-
-class WFGoTask : public ExecRequest
-{
-public:
-	void start()
-	{
-		assert(!series_of(this));
-		Workflow::start_series_work(this, nullptr);
-	}
-
-	void dismiss()
-	{
-		assert(!series_of(this));
-		delete this;
-	}
-
-public:
-	void *user_data;
-
-public:
-	int get_state() const { return this->state; }
-	int get_error() const { return this->error; }
-
-public:
-	void set_callback(std::function<void (WFGoTask *)> cb)
-	{
-		this->callback = std::move(cb);
-	}
-
-protected:
-	virtual SubTask *done()
-	{
-		SeriesWork *series = series_of(this);
-
-		if (this->callback)
-			this->callback(this);
-
-		delete this;
-		return series->pop();
-	}
-
-protected:
-	std::function<void (WFGoTask *)> callback;
-
-public:
-	WFGoTask(ExecQueue *queue, Executor *executor) :
-		ExecRequest(queue, executor)
-	{
-		this->user_data = NULL;
-		this->state = WFT_STATE_UNDEFINED;
-		this->error = 0;
-	}
-
-protected:
-	virtual ~WFGoTask() { }
-};
 
 #include "WFTask.inl"
 

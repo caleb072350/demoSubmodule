@@ -114,12 +114,54 @@ int Router::init(const struct RouterParams *params)
 	return -1;
 }
 
+void Router::notify_available(CommSchedTarget *target)
+{
+	if (this->targets.size() <= 1 || this->nbreak == 0)
+		return;
+
+	int errno_bak = errno;
+	std::lock_guard<std::mutex> lock(this->mutex);
+
+	if (this->group->add(target) == 0)
+		this->nleft++;
+	else
+		errno = errno_bak;
+}
+
+
+
 struct __breaker_node
 {
 	CommSchedTarget *target;
 	int64_t timeout;
 	struct list_head breaker_list;
 };
+
+void Router::notify_unavailable(CommSchedTarget *target)
+{
+	if (this->targets.size() <= 1)
+		return;
+
+	int errno_bak = errno;
+	std::lock_guard<std::mutex> lock(this->mutex);
+
+	if (this->nleft <= 1)
+		return;
+
+	if (this->group->remove(target) < 0)
+	{
+		errno = errno_bak;
+		return;
+	}
+
+	auto *node = new __breaker_node;
+
+	node->target = target;
+	node->timeout = GET_CURRENT_SECOND + MTTR_SECOND;
+	list_add_tail(&node->breaker_list, &this->breaker_list);
+	this->nbreak++;
+	this->nleft--;
+}
 
 void Router::deinit()
 {
@@ -415,4 +457,16 @@ void Router::check_breaker()
 			this->nbreak--;
 		}
 	}
+}
+
+void RouteManager::notify_unavailable(void *cookie, CommTarget *target)
+{
+	if (cookie && target)
+		((Router *)cookie)->notify_unavailable((CommSchedTarget *)target);
+}
+
+void RouteManager::notify_available(void *cookie, CommTarget *target)
+{
+	if (cookie && target)
+		((Router *)cookie)->notify_available((CommSchedTarget *)target);
 }

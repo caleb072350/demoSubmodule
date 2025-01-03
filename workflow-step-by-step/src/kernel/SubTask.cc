@@ -1,7 +1,9 @@
 #include "SubTask.h"
+#include "logger.h"
 
 void SubTask::subtask_done()
 {
+    LOG_INFO("SubTask::subtask_done()");
     SubTask *cur = this;
     ParallelTask *parent;
     SubTask **entry;
@@ -9,7 +11,10 @@ void SubTask::subtask_done()
     while (1) {
         parent = cur->parent;
         entry = cur->entry;
+        LOG_INFO("parent: {}, entry: {}", (void *)parent, (void *)entry);
+        LOG_INFO("before done, cur: {}", (void *)cur);
         cur = cur->done();
+        LOG_INFO("after done, cur: {}", (void *)cur);
         if (cur) {
             cur->parent = parent;
             cur->entry = entry;

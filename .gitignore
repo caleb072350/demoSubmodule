@@ -1,2 +1,4 @@
 build/
 Testing/
+*.log
+logs/

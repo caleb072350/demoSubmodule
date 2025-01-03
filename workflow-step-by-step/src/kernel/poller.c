@@ -328,7 +328,7 @@ static int __poller_append_message(const void *buf, size_t *n,
 		res = node->res;
 
 	ret = msg->append(buf, n, msg);
-	if (ret > 0)
+	if (ret > 0) // 这里有问题，返回结果不是>0的值
 	{
 		res->data = node->data;
 		res->error = 0;
@@ -353,6 +353,9 @@ int __poller_data_get_event(int *event, const struct poller_data *data)
     case PD_OP_LISTEN:
         *event = EPOLLIN | EPOLLET;
         return 1;
+	case PD_OP_CONNECT:
+		*event = EPOLLOUT | EPOLLET;
+		return 0;
 	}
 }
 
@@ -696,8 +699,7 @@ static void __poller_handle_connect(struct __poller_node *node,
     __poller_add_result(node, poller);
 }
 
-static void __poller_handle_read(struct __poller_node *node,
-                                 poller_t *poller)
+static void __poller_handle_read(struct __poller_node *node, poller_t *poller)
 {
     ssize_t nleft;
     size_t n;
@@ -713,7 +715,8 @@ static void __poller_handle_read(struct __poller_node *node,
             {
                 return;
             }
-        } else 
+        } 
+		else 
         {
             nleft = read(node->data.fd, p, POLLER_BUFSIZE);
             if (nleft < 0)
@@ -722,6 +725,7 @@ static void __poller_handle_read(struct __poller_node *node,
                     return;
             }
         }
+		
         if (nleft <= 0)
             break;
         
@@ -758,8 +762,7 @@ static void __poller_handle_read(struct __poller_node *node,
 
 #  define IOV_MAX	1024
 
-static void __poller_handle_write(struct __poller_node *node,
-                                  poller_t *poller)
+static void __poller_handle_write(struct __poller_node *node, poller_t *poller)
 {
     struct iovec *iov = node->data.write_iov;
     size_t count = 0;
@@ -850,12 +853,6 @@ static void *__poller_thread_routine(void *arg)
 				{
 				case PD_OP_READ:
 					__poller_handle_read(node, poller);
-					break;
-				case PD_OP_WRITE:
-					__poller_handle_write(node, poller);
-					break;
-				case PD_OP_LISTEN:
-					__poller_handle_listen(node, poller);
 					break;
                 case PD_OP_CONNECT:
                     __poller_handle_connect(node, poller);

@@ -15,6 +15,7 @@ WFDNSTask *WFTaskFactory::create_dns_task(const std::string& host,
 										  unsigned short port,
 										  dns_callback_t callback)
 {
+	LOG_INFO("WFTaskFactory::create_dns_task(host: {}, port: {}, callback: dns_callback)", host, port);
 	auto *task = WFThreadTaskFactory<DNSInput, DNSOutput>::
 						create_thread_task(WFGlobal::get_dns_queue(),
 										   WFGlobal::get_dns_executor(),
@@ -28,6 +29,7 @@ WFDNSTask *WFTaskFactory::create_dns_task(const std::string& host,
 /********** RouterTask **********/
 void WFRouterTask::dispatch()
 {
+	LOG_INFO("WFRouterTask::dispatch()");
     insert_dns_ = true;
     if (dns_cache_level_ != DNS_CACHE_LEVEL_0)
     {
@@ -41,6 +43,7 @@ void WFRouterTask::dispatch()
             break;
         case DNS_CACHE_LEVEL_2:
             addr_handle = dns_cache->get_ttl(host_, port_);
+			LOG_INFO("addr_handle: {}", (void *)addr_handle);
             break;
         case DNS_CACHE_LEVEL_3:
             addr_handle = dns_cache->get(host_, port_);
@@ -83,7 +86,7 @@ void WFRouterTask::dispatch()
             dns_cache->release(addr_handle);
         }
     }
-
+	LOG_INFO("addr_handle is NULL");
     if (insert_dns_ && !host_.empty())
     {
         char front = host_.front();
@@ -96,10 +99,8 @@ void WFRouterTask::dispatch()
         else if (isdigit(back) && isdigit(front))
             ret = inet_pton(AF_INET, host_.c_str(), &addr);
 
-#ifdef AF_UNIX
         else if (front == '/')
             ret = 1;
-#endif
         else
             ret = 0;
         
@@ -117,11 +118,8 @@ void WFRouterTask::dispatch()
 
     if (insert_dns_)
 	{
-		auto&& cb = std::bind(&WFRouterTask::dns_callback,
-							  this,
-							  std::placeholders::_1);
-		WFDNSTask *dns_task = WFTaskFactory::create_dns_task(host_, port_,
-															 std::move(cb));
+		auto&& cb = std::bind(&WFRouterTask::dns_callback, this, std::placeholders::_1);
+		WFDNSTask *dns_task = WFTaskFactory::create_dns_task(host_, port_, std::move(cb));
 
 		series_of(this)->push_front(dns_task);
 	}
@@ -149,7 +147,7 @@ void WFRouterTask::dns_callback_internal(DNSOutput *dns_out,
 										 unsigned int ttl_min)
 {
 	int dns_error = dns_out->get_error();
-
+	LOG_INFO("dns_error: {}", dns_error);
 	if (dns_error)
 	{
 #ifdef EAI_SYSTEM
@@ -177,9 +175,8 @@ void WFRouterTask::dns_callback_internal(DNSOutput *dns_out,
 														  addrinfo,
 														  (unsigned int)ttl_default,
 														  (unsigned int)ttl_min);
-
-			if (route_manager->get(type_, addrinfo, info_, &endpoint_params_,
-								   route_result_) < 0)
+			LOG_INFO("put {} {} addrinfo to dns_cache, ttl_default: {}, ttl_min: {}", host_, port_, ttl_default, ttl_min);
+			if (route_manager->get(type_, addrinfo, info_, &endpoint_params_, route_result_) < 0)
 			{
 				this->state = WFT_STATE_SYS_ERROR;
 				this->error = errno;
@@ -191,7 +188,10 @@ void WFRouterTask::dns_callback_internal(DNSOutput *dns_out,
 				this->error = EAGAIN;
 			}
 			else
+			{
 				this->state = WFT_STATE_SUCCESS;
+				LOG_INFO("get {} {} dns info success!", host_, port_);
+			}
 
 			dns_cache->release(addr_handle);
 		}
@@ -206,6 +206,8 @@ void WFRouterTask::dns_callback_internal(DNSOutput *dns_out,
 
 void WFRouterTask::dns_callback(WFDNSTask *dns_task)
 {
+	LOG_INFO("WFRouterTask::dns_callback(task: {})", (void *)dns_task);
+	LOG_INFO("dns_task->state: {}, WFT_STATE_SUCCESS: {}", dns_task->get_state(), WFT_STATE_SUCCESS);
 	if (dns_task->get_state() == WFT_STATE_SUCCESS)
 		dns_callback_internal(dns_task->get_output(), dns_ttl_default_, dns_ttl_min_);
 	else

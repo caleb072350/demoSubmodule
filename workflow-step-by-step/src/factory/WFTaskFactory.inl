@@ -51,7 +51,9 @@ public:
 		endpoint_params_(*endpoint_params),
 		first_addr_only_(first_addr_only),
 		callback_(std::move(callback))
-		{}
+		{
+			LOG_INFO("WFRouterTask(type: {}, host: {}, port: {}, info: {})", int(type), host, port, info);
+		}
 
 private:
 	virtual void dispatch();
@@ -92,7 +94,10 @@ public:
 		is_retry_(false),
 		has_original_uri_(true),
 		redirect_(false)
-	{ }
+	{ 
+		LOG_INFO("WFComplexClientTask(retry_max: {}, callback: {})",
+				retry_max, "wget_callback");
+	}
 
 protected:
 	// new api for children
@@ -120,6 +125,7 @@ public:
 
 	void init(const ParsedURI& uri)
 	{
+		LOG_INFO("WFComplexClientTask::init(const ParsedURI&)");
 		is_sockaddr_ = false;
 		init_state_ = 0;
 		uri_ = uri;
@@ -128,6 +134,7 @@ public:
 
 	void init(ParsedURI&& uri)
 	{
+		LOG_INFO("WFComplexClientTask::init(const ParsedURI&&)");
 		is_sockaddr_ = false;
 		init_state_ = 0;
 		uri_ = std::move(uri);
@@ -217,7 +224,7 @@ private:
 	void init_with_uri();
 	bool set_port();
 	void router_callback(SubTask *task); // default: DNS
-	// void switch_callback(WFTimerTask *task);
+	void switch_callback(WFTimerTask *task);
 
 	RouteManager::RouteResult route_result_;
 	UpstreamManager::UpstreamResult upstream_result_;
@@ -240,6 +247,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 											   socklen_t addrlen,
 											   const std::string& info)
 {
+	LOG_INFO("WFComplexClientTask::init({}, {}, {}, {})", type, addr, addrlen, info);
 	is_sockaddr_ = true;
 	init_state_ = 0;
 	type_ = type;
@@ -320,6 +328,7 @@ bool WFComplexClientTask<REQ, RESP, CTX>::set_port()
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::init_with_uri()
 {
+	LOG_INFO("WFComplexClientTask::init_with_uri()");
 	if (has_original_uri_)
 	{
 		original_uri_ = uri_;
@@ -370,8 +379,10 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 	unsigned int dns_ttl_min;
 	const struct EndpointParams *endpoint_params;
 	int dns_cache_level = (is_retry_ ? DNS_CACHE_LEVEL_1 : DNS_CACHE_LEVEL_2);
+	LOG_INFO("is_retry: {}, dns_cache_level: {}", is_retry_, dns_cache_level);
 	auto&& cb = std::bind(&WFComplexClientTask::router_callback, this, std::placeholders::_1);
 	is_retry_ = false; // route means refresh DNS cache level
+	LOG_INFO("upstream_result_.state: {}, UPSTREAM_SUCCESS: {}", upstream_result_.state, UPSTREAM_SUCCESS);
 	if (upstream_result_.state == UPSTREAM_SUCCESS)
 	{
 		const auto *params = upstream_result_.address_params;
@@ -386,12 +397,23 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 		dns_ttl_min = params->dns_ttl_min;
 		endpoint_params = &params->endpoint_params;
 	}
+	LOG_INFO("dns_ttl_default: {}, dns_tll_min: {}", dns_ttl_default, dns_ttl_min);
 	return new WFRouterTask(type_, uri_.host ? uri_.host : "",
 							uri_.port ? atoi(uri_.port) : 0, info_,
 							dns_cache_level, dns_ttl_default, dns_ttl_min,
 							endpoint_params, first_addr_only_, std::move(cb));
 }
 
+
+/*
+ * router callback`s obligation:
+ * if success:
+ * 				1. set route_result_ or call this->init()
+ * 				2. series->push_front(ORIGIN_TASK)
+ * if failed:
+ *				1. this->finish_once() is optional;
+ *				2. this->callback() is necessary;
+*/
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::router_callback(SubTask *task)
 {
@@ -429,11 +451,14 @@ void WFComplexClientTask<REQ, RESP, CTX>::router_callback(SubTask *task)
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::dispatch()
 {
+	LOG_INFO("WFComplexClientTask::dispatch()");
 	// 1. children check_request()
 	if (init_state_ == 1)
 	{
+		LOG_INFO("init_state_: {}", (int)init_state_);
 		init_state_ = this->check_request() ? 2 : 0;
 	}
+	LOG_INFO("after, init_state: {}", (int)init_state_);
 	if (init_state_)
 	{
 		if (route_result_.request_object)
@@ -447,9 +472,13 @@ void WFComplexClientTask<REQ, RESP, CTX>::dispatch()
 		if (is_sockaddr_ || uri_.state == URI_STATE_SUCCESS)
 		{
 			// 3. DNS route() or children route()
+			LOG_INFO("need DNS Route task");
 			router_task_ = this->route();
 			if (router_task_)
+			{
+				LOG_INFO("add router task to front of SeriesWork");
 				series_of(this)->push_front(router_task_);
+			}
 			else 
 			{
 				this->state = WFT_STATE_TASK_ERROR;
@@ -476,8 +505,100 @@ void WFComplexClientTask<REQ, RESP, CTX>::dispatch()
 template<class REQ, class RESP, typename CTX>
 SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 {
-	return NULL;
+	LOG_INFO("WFComplextClientTask::done()");
+	SeriesWork *series = series_of(this);
+
+	// 1. routing
+	if (router_task_)
+	{
+		router_task_ = NULL;
+		LOG_INFO("return router_task_");
+		return series->pop();
+	}
+
+	if (init_state_)
+	{
+		// 2. children can set_redirect() here
+		bool is_user_request = this->finish_once();
+		// 3. complex task success
+		if (this->state == WFT_STATE_SUCCESS)
+		{
+			RouteManager::notify_available(route_result_.cookie, this->target);
+			UpstreamManager::notify_available(upstream_result_.cookie);
+			upstream_result_.clear();
+			// 4. children message out sth. else
+			if (!is_user_request)
+				return this;
+		}
+		else if (this->state == WFT_STATE_SYS_ERROR)
+		{
+			RouteManager::notify_unavailable(route_result_.cookie, this->target);
+			UpstreamManager::notify_unavailable(upstream_result_.cookie);
+			// 5. complex task failed: retry
+			if (retry_times_ < retry_max_)
+			{
+				if (is_sockaddr_)
+					set_retry();
+				else 
+					set_retry(original_uri_);
+				is_retry_ = true; // will influence next round dns cache time
+			}
+		}
+	}
+
+	/*
+	 * When target is NULL, it's very likely that we are still in the
+	 * 'dispatch' thread. Running a timer will switch callback function
+	 * to a handler thread, and this can prevent stack overflow.
+	*/	
+	if (!this->target)
+	{
+		// auto&& cb = std::bind(&WFComplexClientTask::switch_callback,
+		// 					  this,
+		// 					  std::placeholders::_1);
+		// WFTimerTask *timer = WFTaskFactory::create_timer_task(0, std::move(cb));
+
+		// series->push_front(timer);
+	}
+	else 
+		this->switch_callback(NULL);
+
+	return series->pop();
 }
+
+template<class REQ, class RESP, typename CTX>
+void  WFComplexClientTask<REQ, RESP, CTX>::switch_callback(WFTimerTask *)
+{
+	if (!redirect_)
+	{
+		if (this->state == WFT_STATE_SYS_ERROR && this->error < 0)
+		{
+			this->state = WFT_STATE_SSL_ERROR;
+			this->error = -this->error;
+		}
+
+		// 4. children finish before user callback
+		if (this->callback)
+			this->callback(this);
+	}
+
+	if (redirect_)
+	{
+		init_state_ = this->init_success() ? 1 : 0;
+		redirect_ = false;
+		clear_resp();
+
+		this->target = NULL;
+		this->timeout_reason = TOR_NOT_TIMEOUT;
+		this->state = WFT_STATE_UNDEFINED;
+		this->error = 0;
+		series_of(this)->push_front(this);
+	}
+	else
+		delete this;
+}
+
+/////////////////////////////////////////////
 
 template<class INPUT, class OUTPUT>
 class __WFThreadTask : public WFThreadTask<INPUT, OUTPUT>
@@ -511,3 +632,4 @@ WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(ExecQueue *queue, Executo
 											 std::move(routine),
 											 std::move(callback));
 }
+

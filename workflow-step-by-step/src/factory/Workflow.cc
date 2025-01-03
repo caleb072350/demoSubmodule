@@ -4,6 +4,7 @@
 #include <utility>
 #include <functional>
 #include <mutex>
+#include <fmt/core.h>
 #include "Workflow.h"
 
 SeriesWork::SeriesWork(SubTask *first, series_callback_t&& cb) :
@@ -19,6 +20,13 @@ SeriesWork::SeriesWork(SubTask *first, series_callback_t&& cb) :
 	this->first = first;
 	this->last = NULL;
 	this->context = NULL;
+	LOG_INFO("SeriesWork({}, {})", (void *)first, fmt::ptr(reinterpret_cast<void*>(callback.target<void (*)(const SeriesWork*)>())));
+	LOG_INFO("SeriesWork->queue: {}", (void *)queue);
+	LOG_INFO("SeriesWork->queue_size: {}", queue_size);
+	LOG_INFO("SeriesWork: {}", (void *)this);
+	LOG_INFO("SeriesWork->pointer: {}", (void *)this);
+	LOG_INFO("SeriesWork->first: {}", (void *)first);
+	LOG_INFO("SeriesWork->context: {}", NULL);
 }
 
 void SeriesWork::dismiss_recursive()

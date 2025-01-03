@@ -16,6 +16,7 @@
 #include "poller.h"
 #include "mpoller.h"
 #include "Communicator.h"
+#include "logger.h"
 
 struct CommConnEntry
 {
@@ -78,25 +79,6 @@ static int __bind_and_listen(int sockfd, const struct sockaddr *addr,
 	}
 
 	return listen(sockfd, SOMAXCONN);
-}
-
-static int __create_ssl(SSL_CTX *ssl_ctx, struct CommConnEntry *entry)
-{
-	BIO *bio = BIO_new_socket(entry->sockfd, BIO_NOCLOSE);
-
-	if (bio)
-	{
-		entry->ssl = SSL_new(ssl_ctx);
-		if (entry->ssl)
-		{
-			SSL_set_bio(entry->ssl, bio, bio);
-			return 0;
-		}
-
-		BIO_free(bio);
-	}
-
-	return -1;
 }
 
 int CommTarget::init(const struct sockaddr *addr, socklen_t addrlen,
@@ -644,7 +626,7 @@ void Communicator::handle_incoming_reply(struct poller_result *res)
 		else
 	case PR_ST_DELETED:
 	case PR_ST_STOPPED:
-			state = CS_STATE_STOPPED;
+		state = CS_STATE_STOPPED;
 
 		mutex = &entry->mutex;
 		pthread_mutex_lock(&target->mutex);
@@ -812,18 +794,6 @@ void Communicator::handle_request_result(struct poller_result *res)
 	}
 }
 
-
-void Communicator::handle_write_result(struct poller_result *res)
-{
-	struct CommConnEntry *entry = (struct CommConnEntry *)res->data.context;
-
-	free(entry->write_iov);
-	if (entry->service)
-		this->handle_reply_result(res);
-	else
-		this->handle_request_result(res);
-}
-
 struct CommConnEntry *Communicator::accept_conn(CommServiceTarget *target,
 												CommService *service)
 {
@@ -857,71 +827,6 @@ struct CommConnEntry *Communicator::accept_conn(CommServiceTarget *target,
 	return NULL;
 }
 
-void Communicator::handle_listen_result(struct poller_result *res)
-{
-	CommService *service = (CommService *)res->data.context;
-	struct CommConnEntry *entry;
-	CommServiceTarget *target;
-	struct poller_data data;
-	int timeout;
-	int ret;
-
-	switch (res->state)
-	{
-	case PR_ST_SUCCESS:
-		target = (CommServiceTarget *)res->data.result;
-		entry = this->accept_conn(target, service);
-		if (entry)
-		{
-			if (service->ssl_ctx)
-			{
-				ret = __create_ssl(service->ssl_ctx, entry);
-				if (ret >= 0)
-				{
-					data.operation = PD_OP_SSL_ACCEPT;
-					timeout = service->ssl_accept_timeout;
-				}
-			}
-			else
-			{
-				ret = 0;
-				data.operation = PD_OP_READ;
-				data.message = NULL;
-				timeout = target->response_timeout;
-			}
-
-			if (ret >= 0)
-			{
-				data.fd = entry->sockfd;
-				data.ssl = entry->ssl;
-				data.context = entry;
-				if (mpoller_add(&data, timeout, this->mpoller) >= 0)
-				{
-					if (this->stop_flag)
-						mpoller_del(data.fd, this->mpoller);
-					break;
-				}
-			}
-
-			this->release_conn(entry);
-		}
-		else
-			close(target->sockfd);
-
-		target->decref();
-		break;
-
-	case PR_ST_DELETED:
-		this->shutdown_service(service);
-		break;
-
-	case PR_ST_ERROR:
-	case PR_ST_STOPPED:
-		service->handle_stop(res->error);
-		break;
-	}
-}
-
 void Communicator::handle_connect_result(struct poller_result *res)
 {
 	struct CommConnEntry *entry = (struct CommConnEntry *)res->data.context;
@@ -934,17 +839,7 @@ void Communicator::handle_connect_result(struct poller_result *res)
 	switch (res->state)
 	{
 	case PR_ST_FINISHED:
-		if (target->ssl_ctx && !entry->ssl)
-		{
-			ret = __create_ssl(target->ssl_ctx, entry);
-			if (ret >= 0)
-			{
-				res->data.operation = PD_OP_SSL_CONNECT;
-				res->data.ssl = entry->ssl;
-				timeout = target->ssl_connect_timeout;
-			}
-		}
-		else if ((session->out = session->message_out()) != NULL)
+		if ((session->out = session->message_out()) != NULL)
 		{
 			ret = this->send_message(entry);
 			if (ret == 0)
@@ -992,43 +887,9 @@ void Communicator::handle_connect_result(struct poller_result *res)
 	}
 }
 
-void Communicator::handle_aio_result(struct poller_result *res)
+void Communicator::handle_write_result(struct poller_result *res)
 {
-	IOService *service = (IOService *)res->data.context;
-	IOSession *session;
-	int state, error;
-
-	switch (res->state)
-	{
-	case PR_ST_SUCCESS:
-		session = (IOSession *)res->data.result;
-		pthread_mutex_lock(&service->mutex);
-		list_del(&session->list);
-		pthread_mutex_unlock(&service->mutex);
-		if (session->res >= 0)
-		{
-			state = IOS_STATE_SUCCESS;
-			error = 0;
-		}
-		else
-		{
-			state = IOS_STATE_ERROR;
-			error = -session->res;
-		}
-
-		session->handle(state, error);
-		service->decref();
-		break;
-
-	case PR_ST_DELETED:
-		this->shutdown_io_service(service);
-		break;
-
-	case PR_ST_ERROR:
-	case PR_ST_STOPPED:
-		service->handle_stop(res->error);
-		break;
-	}
+	LOG_INFO("handle_write_result");
 }
 
 void Communicator::handler_thread_routine(void *context)
@@ -1043,28 +904,13 @@ void Communicator::handler_thread_routine(void *context)
 		case PD_OP_READ:
 			comm->handle_read_result(res);
 			break;
+		case PD_OP_CONNECT:
+			comm->handle_connect_result(res);
+			break;
 		case PD_OP_WRITE:
 			comm->handle_write_result(res);
 			break;
-		case PD_OP_CONNECT:
-		case PD_OP_SSL_CONNECT:
-			comm->handle_connect_result(res);
-			break;
-		case PD_OP_LISTEN:
-			comm->handle_listen_result(res);
-			break;
-		// case PD_OP_SSL_ACCEPT:
-		// 	comm->handle_ssl_accept_result(res);
-		// 	break;
-		case PD_OP_EVENT:
-		case PD_OP_NOTIFY:
-			comm->handle_aio_result(res);
-			break;
-		// case PD_OP_TIMER:
-		// 	comm->handle_sleep_result(res);
-		// 	break;
 		}
-
 		free(res);
 	}
 }
@@ -1340,6 +1186,8 @@ int Communicator::nonblock_connect(CommTarget *target)
 struct CommConnEntry *Communicator::launch_conn(CommSession *session,
 												CommTarget *target)
 {
+
+	LOG_INFO("Communicator::launch_conn");
 	struct CommConnEntry *entry;
 	int sockfd;
 	int ret;

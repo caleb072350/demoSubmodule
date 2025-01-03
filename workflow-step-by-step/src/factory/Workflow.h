@@ -7,6 +7,7 @@
 #include <functional>
 #include <mutex>
 #include "SubTask.h"
+#include "logger.h"
 
 class SeriesWork;
 class ParallelWork;
@@ -148,6 +149,7 @@ Workflow::create_series_work(SubTask *first, series_callback_t callback)
 inline void
 Workflow::start_series_work(SubTask *first, series_callback_t callback)
 {
+	LOG_INFO("add first to SeriesWork, callback: nullptr");
 	new SeriesWork(first, std::move(callback));
 	first->dispatch();
 }

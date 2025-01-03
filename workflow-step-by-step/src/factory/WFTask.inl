@@ -69,6 +69,7 @@ public:
 				 std::function<void (WFNetworkTask<REQ, RESP> *)>&& cb) :
 		WFNetworkTask<REQ, RESP>(object, scheduler, std::move(cb))
 	{
+		LOG_INFO("WFClientTask(null, WFGlobal::get_scheduler, wget_callback)");
 	}
 
 protected:

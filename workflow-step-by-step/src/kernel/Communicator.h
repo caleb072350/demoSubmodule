@@ -283,17 +283,10 @@ private:
     void handle_request_result(struct poller_result *res);
 	void handle_reply_result(struct poller_result *res);
 
-	void handle_write_result(struct poller_result *res);
 	void handle_read_result(struct poller_result *res);
+	void handle_write_result(struct poller_result *res);
 
 	void handle_connect_result(struct poller_result *res);
-	void handle_listen_result(struct poller_result *res);
-
-	void handle_ssl_accept_result(struct poller_result *res);
-
-	void handle_sleep_result(struct poller_result *res);
-
-	void handle_aio_result(struct poller_result *res);
 
 	static void handler_thread_routine(void *context);
 

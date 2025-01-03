@@ -5,12 +5,14 @@
 #include "SubTask.h"
 #include "Communicator.h"
 #include "CommScheduler.h"
+#include "logger.h"
 
 class CommRequest : public SubTask, public CommSession
 {
 public:
 	CommRequest(CommSchedObject *object, CommScheduler *scheduler)
 	{
+		LOG_INFO("CommRequest(null, WFGlobal::get_scheduler)");
 		this->scheduler = scheduler;
 		this->object = object;
 		this->wait_timeout = 0;

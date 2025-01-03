@@ -8,8 +8,9 @@
 #include "HttpMessage.h"
 #include "HttpUtil.h"
 #include "WFTaskFactory.h"
+#include "logger.h"
 
-#define REDIRECT_MAX    5
+#define REDIRECT_MAX    1
 #define RETRY_MAX       2
 
 void wget_callback(WFHttpTask *task)
@@ -82,12 +83,16 @@ void wget_callback(WFHttpTask *task)
     fprintf(stderr, "\nSuccess. Press Ctrl-C to exit.\n");
 }
 
-void sig_handler(int signo) { exit(0); }
+void sig_handler(int signo) 
+{ 
+    SPDLOG_LOGGER_DEBUG(logger, "receive signal {}", signo);
+    exit(0); 
+}
 
 int main(int argc, char *argv[])
 {
     WFHttpTask *task;
-
+    
     if (argc != 2)
     {
         fprintf(stderr, "USAGE: %s <http URL>\n", argv[0]);
@@ -103,8 +108,8 @@ int main(int argc, char *argv[])
         url = "http://" + url;
     }
 
-    task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX,
-                                           wget_callback);
+    task = WFTaskFactory::create_http_task(url, REDIRECT_MAX, RETRY_MAX, wget_callback);
+    
     protocol::HttpRequest *req = task->get_req();
     req->add_header_pair("Accept", "*/*");
     req->add_header_pair("User-Agent", "Wget/1.14 (linux-gnu)");

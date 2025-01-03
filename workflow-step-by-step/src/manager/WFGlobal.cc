@@ -279,9 +279,10 @@ private:
 #ifdef SIGPIPE
 		signal(SIGPIPE, SIG_IGN);
 #endif
+		LOG_INFO("__CommManager()");
 		const auto *settings = __WFGlobal::get_instance()->get_global_settings();
-		int ret = scheduler_.init(settings->poller_threads,
-								  settings->handler_threads);
+		LOG_INFO("__CommManager.scheduler_.init({}, {})", settings->poller_threads, settings->handler_threads);
+		int ret = scheduler_.init(settings->poller_threads, settings->handler_threads);
 
 		if (ret < 0)
 			abort();
