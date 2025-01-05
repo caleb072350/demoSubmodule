@@ -13,9 +13,7 @@
 #include "CommScheduler.h"
 #include "CommRequest.h"
 #include "SleepRequest.h"
-#include "IORequest.h"
 #include "Workflow.h"
-#include "WFConnection.h"
 
 enum
 {
@@ -90,111 +88,8 @@ public:
 		this->error = 0;
 	}
 
-	WFThreadTask(ExecQueue *queue, Executor *executor, INPUT&& in,
-				 std::function<void (WFThreadTask<INPUT, OUTPUT> *)>&& cb) :
-		ExecRequest(queue, executor),
-		input(std::move(in)),
-		callback(std::move(cb))
-	{
-		this->user_data = NULL;
-		this->state = WFT_STATE_UNDEFINED;
-		this->error = 0;
-	}
-
 protected:
 	virtual ~WFThreadTask() { }
-};
-
-template<class INPUT, class OUTPUT>
-class WFMultiThreadTask : public ParallelTask
-{
-public:
-	void start()
-	{
-		assert(!series_of(this));
-		Workflow::start_series_work(this, nullptr);
-	}
-
-	void dismiss()
-	{
-		assert(!series_of(this));
-		delete this;
-	}
-
-public:
-	INPUT *get_input(size_t index)
-	{
-		return static_cast<Thread *>(this->subtasks[index])->get_input();
-	}
-
-	OUTPUT *get_output(size_t index)
-	{
-		return static_cast<Thread *>(this->subtasks[index])->get_output();
-	}
-
-public:
-	void *user_data;
-
-public:
-	int get_state(size_t index) const
-	{
-		return static_cast<const Thread *>(this->subtasks[index])->get_state();
-	}
-
-	int get_error(size_t index) const
-	{
-		return static_cast<const Thread *>(this->subtasks[index])->get_error();
-	}
-
-public:
-	void set_callback(
-		std::function<void (WFMultiThreadTask<INPUT, OUTPUT> *)> cb)
-	{
-		this->callback = std::move(cb);
-	}
-
-protected:
-	virtual SubTask *done()
-	{
-		SeriesWork *series = series_of(this);
-
-		if (this->callback)
-			this->callback(this);
-
-		delete this;
-		return series->pop();
-	}
-
-protected:
-	std::function<void (WFMultiThreadTask<INPUT, OUTPUT> *)> callback;
-
-protected:
-	using Thread = WFThreadTask<INPUT, OUTPUT>;
-
-public:
-	WFMultiThreadTask(Thread *const tasks[], size_t n,
-			std::function<void (WFMultiThreadTask<INPUT, OUTPUT> *)>&& cb) :
-		ParallelTask(new SubTask *[n], n),
-		callback(std::move(cb))
-	{
-		size_t i;
-
-		for (i = 0; i < n; i++)
-			this->subtasks[i] = tasks[i];
-
-		this->user_data = NULL;
-	}
-
-protected:
-	virtual ~WFMultiThreadTask()
-	{
-		size_t n = this->subtasks_nr;
-
-		while (n > 0)
-			delete this->subtasks[--n];
-
-		delete []this->subtasks;
-	}
 };
 
 template<class REQ, class RESP>
@@ -205,7 +100,6 @@ public:
 	void start()
 	{
 		assert(!series_of(this));
-		LOG_INFO("WFNetworkTask::start");
 		Workflow::start_series_work(this, nullptr);
 	}
 
@@ -253,7 +147,7 @@ public:
 
 	int get_peer_addr(struct sockaddr *addr, socklen_t *addrlen) const;
 
-	virtual WFConnection *get_connection() const;
+	// virtual WFConnection *get_connection() const;
 
 public:
 	/* All in milliseconds. timeout == -1 for unlimited. */
@@ -421,7 +315,6 @@ public:
 protected:
 	virtual ~WFGenericTask() { }
 };
-
 
 #include "WFTask.inl"
 

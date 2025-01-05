@@ -51,29 +51,22 @@ public:
 
     bool add_header(const struct HttpMessageHeader *header)
     {
-        return http_parser_add_header(header->name, header->name_len,
-                                      header->value, header->value_len,
-                                      this->parser) == 0;
+        return http_parser_add_header(header->name, header->name_len, header->value, header->value_len, this->parser) == 0;
     }
 
     bool add_header_pair(const char *name, const char *value)
     {
-        return http_parser_add_header(name, strlen(name),
-                                      value, strlen(value),
-                                      this->parser) == 0;
+        return http_parser_add_header(name, strlen(name), value, strlen(value),  this->parser) == 0;
     }
 
     bool set_header(const struct HttpMessageHeader *header)
     {
-        return http_parser_set_header(header->name, header->name_len,
-                                      header->value, header->value_len,
-                                      this->parser) == 0;
+        return http_parser_set_header(header->name, header->name_len, header->value, header->value_len, this->parser) == 0;
     }
 
     bool set_header_pair(const char *name, const char *value)
     {
-        return http_parser_set_header(name, strlen(name),
-                                      value, strlen(value), this->parser) == 0;
+        return http_parser_set_header(name, strlen(name), value, strlen(value), this->parser) == 0;
     }
 
     bool get_parsed_body(const void **body, size_t *size) const 
@@ -123,16 +116,12 @@ public:
 
 	bool add_header_pair(const std::string& name, const std::string& value)
 	{
-		return http_parser_add_header(name.c_str(), name.size(),
-									  value.c_str(), value.size(),
-									  this->parser) == 0;
+		return http_parser_add_header(name.c_str(), name.size(), value.c_str(), value.size(), this->parser) == 0;
 	}
 
 	bool set_header_pair(const std::string& name, const std::string& value)
 	{
-		return http_parser_set_header(name.c_str(), name.size(),
-									  value.c_str(), value.size(),
-									  this->parser) == 0;
+		return http_parser_set_header(name.c_str(), name.size(), value.c_str(), value.size(), this->parser) == 0;
 	}
 
 	bool append_output_body(const std::string& buf)
@@ -206,6 +195,7 @@ public:
     {
         return http_parser_set_uri(uri, this->parser) == 0;
     }
+	
 /* std::stirng interface */
 public:
 	bool get_method(std::string& method) const

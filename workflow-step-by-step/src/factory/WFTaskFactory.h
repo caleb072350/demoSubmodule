@@ -3,19 +3,15 @@
 
 #include <functional>
 #include "URIParser.h"
-// #include "RedisMessage.h"
 #include "HttpMessage.h"
-// #include "MySQLMessage.h"
 #include "DNSRoutine.h"
 #include "WFTask.h"
 #include "Workflow.h"
 #include "EndpointParams.h"
-// #include "WFAlgoTaskFactory.h"
 
 // Network Client/Server tasks
 
-using WFHttpTask = WFNetworkTask<protocol::HttpRequest,
-								 protocol::HttpResponse>;
+using WFHttpTask = WFNetworkTask<protocol::HttpRequest, protocol::HttpResponse>;
 using http_callback_t = std::function<void (WFHttpTask *)>;
 
 // DNS task. For internal usage only.
@@ -40,9 +36,6 @@ class WFThreadTaskFactory
 {
 private:
 	using T = WFThreadTask<INPUT, OUTPUT>;
-	using MT = WFMultiThreadTask<INPUT, OUTPUT>;
-
-public:
 
 public:
 	static T *create_thread_task(ExecQueue *queue, Executor *executor,

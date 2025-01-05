@@ -71,7 +71,7 @@ void Executor::executor_thread_routine(void *context)
 			.routine	=	Executor::executor_thread_routine,
 			.context	=	queue
 		};
-		__thrdpool_schedule(&task, entry, entry->thrdpool);  // 这里是一个递归调用
+		__thrdpool_schedule(&task, entry, entry->thrdpool);
 	}
 	else
 		free(entry);

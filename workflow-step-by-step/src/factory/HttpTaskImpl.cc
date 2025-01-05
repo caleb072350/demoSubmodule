@@ -15,15 +15,11 @@ using namespace protocol;
 class ComplexHttpTask : public WFComplexClientTask<HttpRequest, HttpResponse>
 {
 public:
-	ComplexHttpTask(int redirect_max,
-					int retry_max,
-					http_callback_t&& callback):
+	ComplexHttpTask(int redirect_max, int retry_max, http_callback_t&& callback):
 		WFComplexClientTask(retry_max, std::move(callback)),
 		redirect_max_(redirect_max),
 		redirect_count_(0)
 	{
-		LOG_INFO("ComplexHttpTask(redirect_max: {}, retry_max: {}, callback: {})",
-				redirect_max, retry_max, "wget_callback");
 		HttpRequest *client_req = this->get_req();
 
 		client_req->set_method(HttpMethodGet);
@@ -321,8 +317,6 @@ WFHttpTask *WFTaskFactory::create_http_task(const std::string& url,
 											int retry_max,
 											http_callback_t callback)
 {
-	LOG_INFO("ComplexHttpTask(redirect_max: {}, retry_max: {}, callback: {})",
-			redirect_max, retry_max, "wget_callback");
 	auto *task = new ComplexHttpTask(redirect_max, retry_max, std::move(callback));
 	ParsedURI uri;
 

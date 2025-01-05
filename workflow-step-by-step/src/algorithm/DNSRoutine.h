@@ -76,7 +76,4 @@ public:
 	static void run(const DNSInput *in, DNSOutput *out);
 };
 
-//new WFDNSTask(queue, executor, dns_routine, callback)
-//if donot want freeaddrinfo, please std::move output in callback
-
 #endif

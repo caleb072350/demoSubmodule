@@ -149,7 +149,6 @@ Workflow::create_series_work(SubTask *first, series_callback_t callback)
 inline void
 Workflow::start_series_work(SubTask *first, series_callback_t callback)
 {
-	LOG_INFO("add first to SeriesWork, callback: nullptr");
 	new SeriesWork(first, std::move(callback));
 	first->dispatch();
 }
@@ -170,93 +169,6 @@ Workflow::start_series_work(SubTask *first, SubTask *last,
 	SeriesWork *series = new SeriesWork(first, std::move(callback));
 	series->set_last_task(last);
 	first->dispatch();
-}
-
-class ParallelWork : public ParallelTask
-{
-public:
-	void start()
-	{
-		assert(!series_of(this));
-		Workflow::start_series_work(this, nullptr);
-	}
-
-	void dismiss()
-	{
-		assert(!series_of(this));
-		this->dismiss_recursive();
-	}
-
-public:
-	void add_series(SeriesWork *series);
-
-public:
-	void *get_context() const { return this->context; }
-	void set_context(void *context) { this->context = context; }
-
-public:
-	const SeriesWork *series_at(size_t index) const
-	{
-		if (index < this->subtasks_nr)
-			return this->all_series[index];
-		else
-			return NULL;
-	}
-
-	const SeriesWork& operator[] (size_t index) const
-	{
-		return *this->series_at(index);
-	}
-
-	size_t size() const { return this->subtasks_nr; }
-
-public:
-	void set_callback(parallel_callback_t callback)
-	{
-		this->callback = std::move(callback);
-	}
-
-private:
-	virtual SubTask *done();
-
-private:
-	void expand_buf();
-	void dismiss_recursive();
-
-private:
-	size_t buf_size;
-	SeriesWork **all_series;
-	void *context;
-	parallel_callback_t callback;
-
-private:
-	ParallelWork(parallel_callback_t&& callback);
-	ParallelWork(SeriesWork *const all_series[], size_t n,
-				 parallel_callback_t&& callback);
-	virtual ~ParallelWork() { delete []this->subtasks; }
-	friend class SeriesWork;
-	friend class Workflow;
-};
-
-inline ParallelWork *
-Workflow::create_parallel_work(parallel_callback_t callback)
-{
-	return new ParallelWork(std::move(callback));
-}
-
-inline ParallelWork *
-Workflow::create_parallel_work(SeriesWork *const all_series[], size_t n,
-							   parallel_callback_t callback)
-{
-	return new ParallelWork(all_series, n, std::move(callback));
-}
-
-inline void
-Workflow::start_parallel_work(SeriesWork *const all_series[], size_t n,
-							  parallel_callback_t callback)
-{
-	ParallelWork *p = new ParallelWork(all_series, n, std::move(callback));
-	Workflow::start_series_work(p, nullptr);
 }
 
 #endif

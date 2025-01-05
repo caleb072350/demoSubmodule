@@ -51,9 +51,7 @@ public:
 		endpoint_params_(*endpoint_params),
 		first_addr_only_(first_addr_only),
 		callback_(std::move(callback))
-		{
-			LOG_INFO("WFRouterTask(type: {}, host: {}, port: {}, info: {})", int(type), host, port, info);
-		}
+		{}
 
 private:
 	virtual void dispatch();
@@ -94,10 +92,7 @@ public:
 		is_retry_(false),
 		has_original_uri_(true),
 		redirect_(false)
-	{ 
-		LOG_INFO("WFComplexClientTask(retry_max: {}, callback: {})",
-				retry_max, "wget_callback");
-	}
+	{}
 
 protected:
 	// new api for children
@@ -125,7 +120,6 @@ public:
 
 	void init(const ParsedURI& uri)
 	{
-		LOG_INFO("WFComplexClientTask::init(const ParsedURI&)");
 		is_sockaddr_ = false;
 		init_state_ = 0;
 		uri_ = uri;
@@ -134,7 +128,6 @@ public:
 
 	void init(ParsedURI&& uri)
 	{
-		LOG_INFO("WFComplexClientTask::init(const ParsedURI&&)");
 		is_sockaddr_ = false;
 		init_state_ = 0;
 		uri_ = std::move(uri);
@@ -247,7 +240,6 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 											   socklen_t addrlen,
 											   const std::string& info)
 {
-	LOG_INFO("WFComplexClientTask::init({}, {}, {}, {})", type, addr, addrlen, info);
 	is_sockaddr_ = true;
 	init_state_ = 0;
 	type_ = type;
@@ -328,7 +320,6 @@ bool WFComplexClientTask<REQ, RESP, CTX>::set_port()
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::init_with_uri()
 {
-	LOG_INFO("WFComplexClientTask::init_with_uri()");
 	if (has_original_uri_)
 	{
 		original_uri_ = uri_;
@@ -379,10 +370,8 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 	unsigned int dns_ttl_min;
 	const struct EndpointParams *endpoint_params;
 	int dns_cache_level = (is_retry_ ? DNS_CACHE_LEVEL_1 : DNS_CACHE_LEVEL_2);
-	LOG_INFO("is_retry: {}, dns_cache_level: {}", is_retry_, dns_cache_level);
 	auto&& cb = std::bind(&WFComplexClientTask::router_callback, this, std::placeholders::_1);
 	is_retry_ = false; // route means refresh DNS cache level
-	LOG_INFO("upstream_result_.state: {}, UPSTREAM_SUCCESS: {}", upstream_result_.state, UPSTREAM_SUCCESS);
 	if (upstream_result_.state == UPSTREAM_SUCCESS)
 	{
 		const auto *params = upstream_result_.address_params;
@@ -397,13 +386,11 @@ SubTask *WFComplexClientTask<REQ, RESP, CTX>::route()
 		dns_ttl_min = params->dns_ttl_min;
 		endpoint_params = &params->endpoint_params;
 	}
-	LOG_INFO("dns_ttl_default: {}, dns_tll_min: {}", dns_ttl_default, dns_ttl_min);
 	return new WFRouterTask(type_, uri_.host ? uri_.host : "",
 							uri_.port ? atoi(uri_.port) : 0, info_,
 							dns_cache_level, dns_ttl_default, dns_ttl_min,
 							endpoint_params, first_addr_only_, std::move(cb));
 }
-
 
 /*
  * router callback`s obligation:
@@ -451,14 +438,11 @@ void WFComplexClientTask<REQ, RESP, CTX>::router_callback(SubTask *task)
 template<class REQ, class RESP, typename CTX>
 void WFComplexClientTask<REQ, RESP, CTX>::dispatch()
 {
-	LOG_INFO("WFComplexClientTask::dispatch()");
 	// 1. children check_request()
 	if (init_state_ == 1)
 	{
-		LOG_INFO("init_state_: {}", (int)init_state_);
 		init_state_ = this->check_request() ? 2 : 0;
 	}
-	LOG_INFO("after, init_state: {}", (int)init_state_);
 	if (init_state_)
 	{
 		if (route_result_.request_object)
@@ -472,11 +456,9 @@ void WFComplexClientTask<REQ, RESP, CTX>::dispatch()
 		if (is_sockaddr_ || uri_.state == URI_STATE_SUCCESS)
 		{
 			// 3. DNS route() or children route()
-			LOG_INFO("need DNS Route task");
 			router_task_ = this->route();
 			if (router_task_)
 			{
-				LOG_INFO("add router task to front of SeriesWork");
 				series_of(this)->push_front(router_task_);
 			}
 			else 
@@ -505,14 +487,12 @@ void WFComplexClientTask<REQ, RESP, CTX>::dispatch()
 template<class REQ, class RESP, typename CTX>
 SubTask *WFComplexClientTask<REQ, RESP, CTX>::done()
 {
-	LOG_INFO("WFComplextClientTask::done()");
 	SeriesWork *series = series_of(this);
 
 	// 1. routing
 	if (router_task_)
 	{
 		router_task_ = NULL;
-		LOG_INFO("return router_task_");
 		return series->pop();
 	}
 

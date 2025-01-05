@@ -33,8 +33,6 @@ DNSOutput& DNSOutput::operator= (DNSOutput&& move)
 
 void DNSRoutine::run(const DNSInput *in, DNSOutput *out)
 {
-	LOG_INFO("DNSInput: {}, DNSOutput: {}", (void *)in, (void *)out);
-	LOG_INFO("in->host: {}", in->host_);
 	if (!in->host_.empty() && in->host_[0] == '/')
 	{
 		out->error_ = 0;
@@ -56,9 +54,7 @@ void DNSRoutine::run(const DNSInput *in, DNSOutput *out)
 	}
 
 	struct addrinfo hints = {
-#ifdef AI_ADDRCONFIG
 		.ai_flags    = AI_ADDRCONFIG,
-#endif
 		.ai_family   = AF_UNSPEC,
 		.ai_socktype = SOCK_STREAM
 	};
