@@ -69,6 +69,5 @@ int main() {
     inorder_traverse(tree.rb_node);
     printf("\n");
 
-
     return 0;
 }

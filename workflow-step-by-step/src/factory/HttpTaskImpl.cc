@@ -149,20 +149,7 @@ bool ComplexHttpTask::init_success()
 	HttpRequest *client_req = this->get_req();
 	std::string request_uri;
 	std::string header_host;
-	bool is_ssl;
 	bool is_unix = false;
-
-	if (uri_.scheme && strcasecmp(uri_.scheme, "http") == 0)
-		is_ssl = false;
-	else if (uri_.scheme && strcasecmp(uri_.scheme, "https") == 0)
-		is_ssl = true;
-	else
-	{
-		this->state = WFT_STATE_TASK_ERROR;
-		this->error = WFT_ERR_URI_SCHEME_INVALID;
-		this->set_empty_request();
-		return false;
-	}
 
 	//todo http+unix
 	//https://stackoverflow.com/questions/26964595/whats-the-correct-way-to-use-a-unix-domain-socket-in-requests-framework
@@ -189,26 +176,14 @@ bool ComplexHttpTask::init_success()
 	if (!is_unix && uri_.port && uri_.port[0])
 	{
 		int port = atoi(uri_.port);
-
-		if (is_ssl)
+		if (port != 80)
 		{
-			if (port != 443)
-			{
-				header_host += ":";
-				header_host += uri_.port;
-			}
-		}
-		else
-		{
-			if (port != 80)
-			{
-				header_host += ":";
-				header_host += uri_.port;
-			}
+			header_host += ":";
+			header_host += uri_.port;
 		}
 	}
 
-	this->WFComplexClientTask::set_type(is_ssl ? TT_TCP_SSL : TT_TCP);
+	this->WFComplexClientTask::set_type(TT_TCP);
 	client_req->set_request_uri(request_uri.c_str());
 	client_req->set_header_pair("Host", header_host.c_str());
 
@@ -312,10 +287,7 @@ void ComplexHttpTask::set_empty_request()
 
 /**********Client Factory**********/
 
-WFHttpTask *WFTaskFactory::create_http_task(const std::string& url,
-											int redirect_max,
-											int retry_max,
-											http_callback_t callback)
+WFHttpTask *WFTaskFactory::create_http_task(const std::string& url, int redirect_max, int retry_max, http_callback_t callback)
 {
 	auto *task = new ComplexHttpTask(redirect_max, retry_max, std::move(callback));
 	ParsedURI uri;

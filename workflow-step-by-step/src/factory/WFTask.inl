@@ -1,6 +1,6 @@
+
 template<class REQ, class RESP>
-int WFNetworkTask<REQ, RESP>::get_peer_addr(struct sockaddr *addr,
-											socklen_t *addrlen) const
+int WFNetworkTask<REQ, RESP>::get_peer_addr(struct sockaddr *addr, socklen_t *addrlen) const
 {
 	const struct sockaddr *p;
 	socklen_t len;

@@ -30,24 +30,8 @@ class CommSchedGroup;
 class CommSchedTarget : public CommSchedObject, public CommTarget
 {
 public:
-	int init(const struct sockaddr *addr, socklen_t addrlen,
-			 int connect_timeout, int response_timeout,
-			 size_t max_connections);
+	int init(const struct sockaddr *addr, socklen_t addrlen, int connect_timeout, int response_timeout, size_t max_connections);
 	void deinit();
-
-public:
-	int init(const struct sockaddr *addr, socklen_t addrlen, SSL_CTX *ssl_ctx,
-			 int connect_timeout, int ssl_connect_timeout, int response_timeout,
-			 size_t max_connections)
-	{
-		int ret = this->init(addr, addrlen, connect_timeout, response_timeout,
-							 max_connections);
-
-		if (ret >= 0)
-			this->set_ssl(ssl_ctx, ssl_connect_timeout);
-
-		return ret;
-	}
 
 private:
 	virtual CommTarget *acquire(int wait_timeout); /* final */

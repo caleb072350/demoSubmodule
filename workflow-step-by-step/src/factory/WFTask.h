@@ -18,14 +18,11 @@
 enum
 {
 	WFT_STATE_UNDEFINED = -1,
-	WFT_STATE_SUCCESS = CS_STATE_SUCCESS,
-	WFT_STATE_TOREPLY = CS_STATE_TOREPLY,		/* for server task only */
-	WFT_STATE_NOREPLY = CS_STATE_TOREPLY + 1,	/* for server task only */
 	WFT_STATE_SYS_ERROR = CS_STATE_ERROR,
-	WFT_STATE_SSL_ERROR = 65,
+	WFT_STATE_ABORTED = CS_STATE_STOPPED,		/* main process terminated */
+	WFT_STATE_SUCCESS = CS_STATE_SUCCESS,
 	WFT_STATE_DNS_ERROR = 66,					/* for client task only */
 	WFT_STATE_TASK_ERROR = 67,
-	WFT_STATE_ABORTED = CS_STATE_STOPPED		/* main process terminated */
 };
 
 template<class INPUT, class OUTPUT>
@@ -109,13 +106,6 @@ public:
 		delete this;
 	}
 
-	/* noreply() for server task only. */
-	void noreply()
-	{
-		if (this->state == WFT_STATE_TOREPLY)
-			this->state = WFT_STATE_NOREPLY;
-	}
-
 public:
 	REQ *get_req() { return &this->req; }
 	RESP *get_resp() { return &this->resp; }
@@ -147,8 +137,6 @@ public:
 
 	int get_peer_addr(struct sockaddr *addr, socklen_t *addrlen) const;
 
-	// virtual WFConnection *get_connection() const;
-
 public:
 	/* All in milliseconds. timeout == -1 for unlimited. */
 	void set_send_timeout(int timeout) { this->send_timeo = timeout; }
@@ -170,12 +158,6 @@ protected:
 	virtual SubTask *done()
 	{
 		SeriesWork *series = series_of(this);
-
-		if (this->state == WFT_STATE_SYS_ERROR && this->error < 0)
-		{
-			this->state = WFT_STATE_SSL_ERROR;
-			this->error = -this->error;
-		}
 
 		if (this->callback)
 			this->callback(this);
@@ -206,7 +188,6 @@ protected:
 		this->timeout_reason = TOR_NOT_TIMEOUT;
 		this->state = WFT_STATE_UNDEFINED;
 		this->error = 0;
-		LOG_INFO("WFNetworkTask(null, WFGlobal::get_scheduler, wget_callback)");
 	}
 
 	virtual ~WFNetworkTask() { }
@@ -250,8 +231,7 @@ protected:
 	std::function<void (WFTimerTask *)> callback;
 
 public:
-	WFTimerTask(CommScheduler *scheduler,
-				std::function<void (WFTimerTask *)> cb) :
+	WFTimerTask(CommScheduler *scheduler, std::function<void (WFTimerTask *)> cb) :
 		SleepRequest(scheduler),
 		callback(std::move(cb))
 	{

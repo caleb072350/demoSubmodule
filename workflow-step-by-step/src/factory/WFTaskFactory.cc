@@ -11,15 +11,10 @@
 #include "WFTaskError.h"
 #include "WFTaskFactory.h"
 
-WFDNSTask *WFTaskFactory::create_dns_task(const std::string& host,
-										  unsigned short port,
-										  dns_callback_t callback)
+WFDNSTask *WFTaskFactory::create_dns_task(const std::string& host, unsigned short port, dns_callback_t callback)
 {
-	auto *task = WFThreadTaskFactory<DNSInput, DNSOutput>::
-						create_thread_task(WFGlobal::get_dns_queue(),
-										   WFGlobal::get_dns_executor(),
-										   DNSRoutine::run,
-										   std::move(callback));
+	auto *task = WFThreadTaskFactory<DNSInput, DNSOutput>::create_thread_task(WFGlobal::get_dns_queue(),WFGlobal::get_dns_executor(),
+										   										DNSRoutine::run, std::move(callback));
 
 	task->get_input()->reset(host, port);
 	return task;
@@ -117,7 +112,6 @@ void WFRouterTask::dispatch()
 	{
 		auto&& cb = std::bind(&WFRouterTask::dns_callback, this, std::placeholders::_1);
 		WFDNSTask *dns_task = WFTaskFactory::create_dns_task(host_, port_, std::move(cb));
-
 		series_of(this)->push_front(dns_task);
 	}
 
@@ -139,9 +133,7 @@ SubTask* WFRouterTask::done()
 	return series->pop();
 }
 
-void WFRouterTask::dns_callback_internal(DNSOutput *dns_out,
-										 unsigned int ttl_default,
-										 unsigned int ttl_min)
+void WFRouterTask::dns_callback_internal(DNSOutput *dns_out, unsigned int ttl_default, unsigned int ttl_min)
 {
 	int dns_error = dns_out->get_error();
 	if (dns_error)
@@ -162,16 +154,11 @@ void WFRouterTask::dns_callback_internal(DNSOutput *dns_out,
 	else
 	{
 		struct addrinfo *addrinfo = dns_out->move_addrinfo();
-
 		if (addrinfo)
 		{
 			auto *route_manager = WFGlobal::get_route_manager();
 			auto *dns_cache = WFGlobal::get_dns_cache();
-			const DNSHandle *addr_handle = dns_cache->put(host_, port_,
-														  addrinfo,
-														  (unsigned int)ttl_default,
-														  (unsigned int)ttl_min);
-			LOG_INFO("put {} {} addrinfo to dns_cache, ttl_default: {}, ttl_min: {}", host_, port_, ttl_default, ttl_min);
+			const DNSHandle *addr_handle = dns_cache->put(host_, port_, addrinfo, (unsigned int)ttl_default, (unsigned int)ttl_min);
 			if (route_manager->get(type_, addrinfo, info_, &endpoint_params_, route_result_) < 0)
 			{
 				this->state = WFT_STATE_SYS_ERROR;
@@ -186,7 +173,6 @@ void WFRouterTask::dns_callback_internal(DNSOutput *dns_out,
 			else
 			{
 				this->state = WFT_STATE_SUCCESS;
-				LOG_INFO("get {} {} dns info success!", host_, port_);
 			}
 
 			dns_cache->release(addr_handle);

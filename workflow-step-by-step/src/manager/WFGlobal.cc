@@ -65,27 +65,6 @@ public:
 		user_scheme_port_mutex_.unlock();
 	}
 
-    void sync_operation_begin()
-	{
-		bool inc;
-
-		sync_mutex_.lock();
-		inc = ++sync_count_ > sync_max_;
-
-		if (inc)
-			sync_max_ = sync_count_;
-		sync_mutex_.unlock();
-		if (inc)
-			WFGlobal::get_scheduler()->increase_handler_thread();
-	}
-
-    void sync_operation_end()
-	{
-		sync_mutex_.lock();
-		sync_count_--;
-		sync_mutex_.unlock();
-	}
-
 private:
 	__WFGlobal():
 		settings_(GLOBAL_SETTINGS_DEFAULT)
@@ -96,8 +75,8 @@ private:
 		static_scheme_port_["rediss"] = "6379";
 		static_scheme_port_["mysql"] = "3306";
 		static_scheme_port_["kafka"] = "9092";
-		sync_count_ = 0;
-		sync_max_ = 0;
+		// sync_count_ = 0;
+		// sync_max_ = 0;
 	}
 
 private:
@@ -105,91 +84,9 @@ private:
 	std::unordered_map<std::string, const char *> static_scheme_port_;
 	std::unordered_map<std::string, std::string> user_scheme_port_;
 	std::mutex user_scheme_port_mutex_;
-	std::mutex sync_mutex_;
-	int sync_count_;
-	int sync_max_;
-};
-
-class __SSLManager
-{
-public:
-	static __SSLManager *get_instance()
-	{
-		static __SSLManager kInstance;
-		return &kInstance;
-	}
-
-	SSL_CTX *get_ssl_client_ctx() { return ssl_client_ctx_; }
-	SSL_CTX *get_ssl_server_ctx() { return ssl_server_ctx_; }
-private:
-	__SSLManager()
-	{
-		ssl_client_ctx_ = SSL_CTX_new(SSLv23_client_method());
-		assert(ssl_client_ctx_ != NULL);
-		ssl_server_ctx_ = SSL_CTX_new(SSLv23_server_method());
-		assert(ssl_server_ctx_ != NULL);
-	}
-
-	~__SSLManager()
-	{
-		SSL_CTX_free(ssl_client_ctx_);
-		SSL_CTX_free(ssl_server_ctx_);
-	}
-private:
-	SSL_CTX *ssl_client_ctx_;
-	SSL_CTX *ssl_server_ctx_;
-};
-
-class IOServer : public IOService
-{
-public:
-	IOServer(CommScheduler *scheduler):
-		scheduler_(scheduler),
-		flag_(true)
-	{}
-
-	int bind()
-	{
-		mutex_.lock();
-		flag_ = false;
-
-		int ret = scheduler_->io_bind(this);
-
-		if (ret < 0)
-			flag_ = true;
-
-		mutex_.unlock();
-		return ret;
-	}
-
-	void deinit()
-	{
-		std::unique_lock<std::mutex> lock(mutex_);
-		while (!flag_)
-			cond_.wait(lock);
-
-		lock.unlock();
-		IOService::deinit();
-	}
-
-private:
-	virtual void handle_unbound()
-	{
-		mutex_.lock();
-		flag_ = true;
-		cond_.notify_one();
-		mutex_.unlock();
-	}
-
-	virtual void handle_stop(int error)
-	{
-		scheduler_->io_unbind(this);
-	}
-
-	CommScheduler *scheduler_;
-	std::mutex mutex_;
-	std::condition_variable cond_;
-	bool flag_;
+	// std::mutex sync_mutex_;
+	// int sync_count_;
+	// int sync_max_;
 };
 
 class __DNSManager
@@ -235,30 +132,7 @@ public:
 
 	CommScheduler *get_scheduler() { return &scheduler_; }
 	RouteManager *get_route_manager() { return &route_manager_; }
-	IOService *get_io_service()
-	{
-		if (!io_flag_)
-		{
-			io_mutex_.lock();
-			if (!io_flag_)
-			{
-				io_server_ = new IOServer(&scheduler_);
-				//todo EAGAIN 65536->2
-				if (io_server_->init(8192) < 0)
-					abort();
-
-				if (io_server_->bind() < 0)
-					abort();
-
-				io_flag_ = true;
-			}
-
-			io_mutex_.unlock();
-		}
-
-		return io_server_;
-	}
-
+	
 	ExecQueue *get_dns_queue()
 	{
 		return get_dns_manager_safe()->get_dns_queue();
@@ -271,8 +145,6 @@ public:
 
 private:
 	__CommManager():
-		io_server_(NULL),
-		io_flag_(false),
 		dns_manager_(NULL),
 		dns_flag_(false)
 	{
@@ -292,11 +164,6 @@ private:
 			delete dns_manager_;
 
 		scheduler_.deinit();
-		if (io_server_)
-		{
-			io_server_->deinit();
-			delete io_server_;
-		}
 	}
 
 	__DNSManager *get_dns_manager_safe()
@@ -319,9 +186,6 @@ private:
 private:
 	CommScheduler scheduler_;
 	RouteManager route_manager_;
-	IOServer *io_server_;
-	volatile bool io_flag_;
-	std::mutex io_mutex_;
 	__DNSManager *dns_manager_;
 	volatile bool dns_flag_;
 	std::mutex dns_mutex_;
@@ -398,9 +262,7 @@ private:
 	__ExecManager():
 		mutex_(PTHREAD_RWLOCK_INITIALIZER)
 	{
-		int compute_threads = __WFGlobal::get_instance()->
-										  get_global_settings()->
-										  compute_threads;
+		int compute_threads = __WFGlobal::get_instance()->get_global_settings()->compute_threads;
 
 		if (compute_threads <= 0)
 			compute_threads = sysconf(_SC_NPROCESSORS_ONLN);
@@ -454,11 +316,6 @@ ExecQueue *WFGlobal::get_dns_queue()
 Executor *WFGlobal::get_dns_executor()
 {
 	return __CommManager::get_instance()->get_dns_executor();
-}
-
-SSL_CTX *WFGlobal::get_ssl_client_ctx()
-{
-	return __SSLManager::get_instance()->get_ssl_client_ctx();
 }
 
 const WFGlobalSettings *WFGlobal::get_global_settings()

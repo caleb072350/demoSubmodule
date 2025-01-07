@@ -28,9 +28,7 @@ struct RouterParams
 	TransportType transport_type;
 	const struct addrinfo *addrinfo;
 	uint64_t md5_16;
-	SSL_CTX *ssl_ctx;
 	int connect_timeout;
-	int ssl_connect_timeout;
 	int response_timeout;
 	size_t max_connections;
 };
@@ -337,24 +335,12 @@ int RouteManager::get(TransportType type,
 
 	if (*p == NULL)
 	{
-		int ssl_connect_timeout = 0;
-		SSL_CTX *ssl_ctx = NULL;
-
-		if (type == TT_TCP_SSL || type == TT_SCTP_SSL)
-		{
-			static SSL_CTX *client_ssl_ctx = WFGlobal::get_ssl_client_ctx();
-
-			ssl_ctx = client_ssl_ctx;
-			ssl_connect_timeout = endpoint_params->ssl_connect_timeout;
-		}
 
 		struct RouterParams params = {
 			.transport_type			=	type,
 			.addrinfo 				= 	addrinfo,
 			.md5_16					=	md5_16,
-			.ssl_ctx 				=	ssl_ctx,
 			.connect_timeout		=	endpoint_params->connect_timeout,
-			.ssl_connect_timeout	=	ssl_connect_timeout,
 			.response_timeout		=	endpoint_params->response_timeout,
 			.max_connections		=	endpoint_params->max_connections
 		};
@@ -420,9 +406,7 @@ CommSchedTarget *Router::create_target(const struct RouterParams *params,
 		return NULL;
 	}
 
-	if (target->init(addr->ai_addr, addr->ai_addrlen, params->ssl_ctx,
-					 params->connect_timeout, params->ssl_connect_timeout,
-					 params->response_timeout, params->max_connections) < 0)
+	if (target->init(addr->ai_addr, addr->ai_addrlen, params->connect_timeout, params->response_timeout, params->max_connections) < 0)
 	{
 		delete target;
 		target = NULL;
