@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <sys/un.h>
 #include "DNSRoutine.h"
-#include "logger.h"
 
 #define PORT_STR_MAX	5
 
@@ -61,8 +60,5 @@ void DNSRoutine::run(const DNSInput *in, DNSOutput *out)
 	char port_str[PORT_STR_MAX + 1];
 
 	snprintf(port_str, PORT_STR_MAX + 1, "%u", in->port_);
-	out->error_ = getaddrinfo(in->host_.c_str(),
-							  port_str,
-							  &hints,
-							  &out->addrinfo_);
+	out->error_ = getaddrinfo(in->host_.c_str(), port_str, &hints, &out->addrinfo_);
 }

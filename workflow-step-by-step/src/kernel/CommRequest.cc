@@ -18,8 +18,7 @@ void CommRequest::handle(int state, int error)
 
 void CommRequest::dispatch()
 {
-	if (this->scheduler->request(this, this->object, this->wait_timeout,
-								 &this->target) < 0)
+	if (this->scheduler->request(this, this->object, this->wait_timeout, &this->target) < 0)
 	{
 		this->state = CS_STATE_ERROR;
 		this->error = errno;

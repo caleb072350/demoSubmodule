@@ -8,6 +8,8 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../kernel/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../factory/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../util/)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../manager/)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../protocol/)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../algorithm/)
 
 add_executable(executor executor.cc)
 target_link_libraries(executor kernel)

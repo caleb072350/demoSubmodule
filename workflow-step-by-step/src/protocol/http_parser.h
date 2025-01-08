@@ -43,30 +43,20 @@ extern "C"
 #endif
 
 void http_parser_init(int is_resp, http_parser_t *parser);
-int http_parser_append_message(const void *buf, size_t *n,
-							   http_parser_t *parser);
-int http_parser_get_body(const void **body, size_t *size,
-						 http_parser_t *parser);
+int http_parser_append_message(const void *buf, size_t *n, http_parser_t *parser);
+int http_parser_get_body(const void **body, size_t *size, http_parser_t *parser);
 int http_parser_header_complete(http_parser_t *parser);
 int http_parser_set_method(const char *method, http_parser_t *parser);
 int http_parser_set_uri(const char *uri, http_parser_t *parser);
 int http_parser_set_version(const char *version, http_parser_t *parser);
 int http_parser_set_code(const char *code, http_parser_t *parser);
 int http_parser_set_phrase(const char *phrase, http_parser_t *parser);
-int http_parser_add_header(const void *name, size_t name_len,
-						   const void *value, size_t value_len,
-						   http_parser_t *parser);
-int http_parser_set_header(const void *name, size_t name_len,
-						   const void *value, size_t value_len,
-						   http_parser_t *parser);
+int http_parser_add_header(const void *name, size_t name_len, const void *value, size_t value_len, http_parser_t *parser);
+int http_parser_set_header(const void *name, size_t name_len, const void *value, size_t value_len, http_parser_t *parser);
 void http_parser_deinit(http_parser_t *parser);
 
-int http_header_cursor_next(const void **name, size_t *name_len,
-							const void **value, size_t *value_len,
-							http_header_cursor_t *cursor);
-int http_header_cursor_find(const void *name, size_t name_len,
-							const void **value, size_t *value_len,
-							http_header_cursor_t *cursor);
+int http_header_cursor_next(const void **name, size_t *name_len, const void **value, size_t *value_len, http_header_cursor_t *cursor);
+int http_header_cursor_find(const void *name, size_t name_len, const void **value, size_t *value_len, http_header_cursor_t *cursor);
 
 #ifdef __cplusplus
 }
@@ -112,8 +102,7 @@ static inline void http_parser_close_message(http_parser_t *parser)
 	parser->complete = 1;
 }
 
-static inline void http_header_cursor_init(http_header_cursor_t *cursor,
-										   const http_parser_t *parser)
+static inline void http_header_cursor_init(http_header_cursor_t *cursor, const http_parser_t *parser)
 {
 	cursor->head = &parser->header_list;
 	cursor->next = cursor->head;

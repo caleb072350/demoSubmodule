@@ -4,7 +4,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <pthread.h>
-#include <openssl/ssl.h>
 #include "Communicator.h"
 
 class CommSchedObject
@@ -110,33 +109,12 @@ public:
 		return this->comm.reply(session);
 	}
 
-	int bind(CommService *service)
-	{
-		return this->comm.bind(service);
-	}
-
-	void unbind(CommService *service)
-	{
-		this->comm.unbind(service);
-	}
-
 	/* for sleepers. */
 	int sleep(SleepSession *session)
 	{
 		return this->comm.sleep(session);
 	}
-
-	/* for file aio services. */
-	int io_bind(IOService *service)
-	{
-		return this->comm.io_bind(service);
-	}
-
-	void io_unbind(IOService *service)
-	{
-		this->comm.io_unbind(service);
-	}
-
+	
 public:
 	int increase_handler_thread()
 	{

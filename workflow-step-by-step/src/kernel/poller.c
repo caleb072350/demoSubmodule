@@ -209,9 +209,8 @@ void poller_queue_destroy(poller_queue_t *queue)
 	free(queue);
 }
 
-// 生产者？把结果放入put队列，激活等待线程
-static void __poller_add_result(struct __poller_node *res,
-								poller_t *poller)
+// 生产者 把结果放入put队列，激活等待线程
+static void __poller_add_result(struct __poller_node *res, poller_t *poller)
 {
 	poller_queue_t *queue = poller->params.result_queue;
 
@@ -228,8 +227,7 @@ static void __poller_add_result(struct __poller_node *res,
 	pthread_cond_signal(&queue->get_cond);
 }
 
-static inline long __timeout_cmp(const struct __poller_node *node1,
-								 const struct __poller_node *node2)
+static inline long __timeout_cmp(const struct __poller_node *node1, const struct __poller_node *node2)
 {
 	long ret = node1->timeout.tv_sec - node2->timeout.tv_sec;
 
@@ -708,24 +706,13 @@ static void __poller_handle_read(struct __poller_node *node, poller_t *poller)
     while (1) 
     {
         p = poller->buf;
-        if (node->data.ssl)
-        {
-            nleft = SSL_read(node->data.ssl, p, POLLER_BUFSIZE);
-            if (nleft < 0)
-            {
-                return;
-            }
-        } 
-		else 
-        {
-            nleft = read(node->data.fd, p, POLLER_BUFSIZE);
-            if (nleft < 0)
-            {
-                if (errno == EAGAIN)
-                    return;
-            }
-        }
-		
+        nleft = read(node->data.fd, p, POLLER_BUFSIZE);
+		if (nleft < 0)
+		{
+			if (errno == EAGAIN)
+				return;
+		}
+        
         if (nleft <= 0)
             break;
         
@@ -778,27 +765,18 @@ static void __poller_handle_write(struct __poller_node *node, poller_t *poller)
 
     while (node->data.iovcnt > 0)
     {
-        if (node->data.ssl)
-        {
-            nleft = SSL_write(node->data.ssl, iov->iov_base, iov->iov_len);
-            if (nleft <= 0) 
-            {
-                break;
-            }
-        } else 
-        {
-            iovcnt = node->data.iovcnt;
-            if (iovcnt > IOV_MAX)
-                iovcnt = IOV_MAX;
-            
-            nleft = writev(node->data.fd, iov, iovcnt);
-            if (nleft < 0)
-            {
-                ret = errno == EAGAIN ? 0 : -1;
-                break;
-            }
-        }
-
+        
+		iovcnt = node->data.iovcnt;
+		if (iovcnt > IOV_MAX)
+			iovcnt = IOV_MAX;
+		
+		nleft = writev(node->data.fd, iov, iovcnt);
+		if (nleft < 0)
+		{
+			ret = errno == EAGAIN ? 0 : -1;
+			break;
+		}
+        
         count += nleft;
 
     }
@@ -822,10 +800,58 @@ static int __poller_handle_pipe(poller_t *poller)
     return stop;
 }
 
-static void __poller_handle_timeout(const struct __poller_node *time_node,
-                                    poller_t *poller)
+static void __poller_handle_timeout(const struct __poller_node *time_node, poller_t *poller)
 {
+	struct __poller_node *node;
+	struct list_head *pos, *tmp;
+	LIST_HEAD(timeo_list);
 
+	pthread_mutex_lock(&poller->mutex);
+	list_for_each_safe(pos, tmp, &poller->timeo_list)
+	{
+		node = list_entry(pos, struct __poller_node, list);
+		if (__timeout_cmp(node, time_node) < 0)
+		{
+			if (node->data.fd >= 0)
+			{
+				poller->nodes[node->data.fd] = NULL;
+				__poller_del_fd(node->data.fd, node->event, poller);
+			}
+			
+			list_move_tail(pos, &timeo_list);
+		} else
+			break;
+	}
+
+	while (poller->tree_first)
+	{
+		node = rb_entry(poller->tree_first, struct __poller_node, rb);
+		if (__timeout_cmp(node, time_node) < 0)
+		{
+			if (node->data.fd >= 0)
+			{
+				poller->nodes[node->data.fd] = NULL;
+				__poller_del_fd(node->data.fd, node->event, poller);
+			}
+
+			poller->tree_first = rb_next(poller->tree_first);
+			rb_erase(&node->rb, &poller->timeo_tree);
+			list_add_tail(&node->list, &timeo_list);
+		}
+		else
+			break;
+	}
+
+	pthread_mutex_unlock(&poller->mutex);
+	while (!list_empty(&timeo_list))
+	{
+		node = list_entry(timeo_list.next, struct __poller_node, list);
+		list_del(&node->list);
+
+		node->error = ETIMEDOUT;
+		node->state = PR_ST_ERROR;
+		__poller_add_result(node, poller);
+	}
 }
 
 static void *__poller_thread_routine(void *arg)
@@ -1072,8 +1098,7 @@ int poller_set_timeout(int fd, int timeout, poller_t *poller)
 	return -!node;
 }
 
-int poller_add_timer(void *context, const struct timespec *value,
-					 poller_t *poller)
+int poller_add_timer(void *context, const struct timespec *value, poller_t *poller)
 {
 	struct __poller_node *node;
 	node = (struct __poller_node *)malloc(sizeof (struct __poller_node));

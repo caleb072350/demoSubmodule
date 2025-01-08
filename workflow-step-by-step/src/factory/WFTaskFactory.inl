@@ -17,6 +17,38 @@
 #include "WFTaskError.h"
 #include "EndpointParams.h"
 
+class __WFTimerTask : public WFTimerTask
+{
+protected:
+	virtual int duration(struct timespec *value)
+	{
+		*value = this->value;
+		return 0;
+	}
+
+protected:
+	struct timespec value;
+
+public:
+	__WFTimerTask(const struct timespec *value, CommScheduler *scheduler,
+				  timer_callback_t&& cb) :
+		WFTimerTask(scheduler, std::move(cb))
+	{
+		this->value = *value;
+	}
+};
+
+inline WFTimerTask *WFTaskFactory::create_timer_task(unsigned int microseconds,
+													 timer_callback_t callback)
+{
+	struct timespec value = {
+		.tv_sec		=	(time_t)microseconds / 1000000,
+		.tv_nsec	=	(long)microseconds % 1000000 * 1000
+	};
+	return new __WFTimerTask(&value, WFGlobal::get_scheduler(),
+							 std::move(callback));
+}
+
 #define DNS_CACHE_LEVEL_0		0
 #define DNS_CACHE_LEVEL_1		1
 #define DNS_CACHE_LEVEL_2		2
@@ -82,8 +114,7 @@ protected:
 
 public:
 	WFComplexClientTask(int retry_max, task_callback_t&& callback):
-		WFClientTask<REQ, RESP>(NULL, WFGlobal::get_scheduler(),
-								std::move(callback)),
+		WFClientTask<REQ, RESP>(NULL, WFGlobal::get_scheduler(), std::move(callback)),
 		retry_max_(retry_max),
 		first_addr_only_(false),
 		router_task_(NULL),

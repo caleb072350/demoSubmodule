@@ -54,8 +54,7 @@ static inline int mpoller_set_timeout(int fd, int timeout, mpoller_t *mpoller)
 	return poller_set_timeout(fd, timeout, mpoller->poller[index]);
 }
 
-static inline int mpoller_add_timer(void *context, const struct timespec *value,
-									mpoller_t *mpoller)
+static inline int mpoller_add_timer(void *context, const struct timespec *value, mpoller_t *mpoller)
 {
 	static unsigned int n = 0;
 	unsigned int index = n++ % mpoller->nthreads;

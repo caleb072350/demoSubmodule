@@ -18,6 +18,8 @@ using http_callback_t = std::function<void (WFHttpTask *)>;
 using WFDNSTask = WFThreadTask<DNSInput, DNSOutput>;
 using dns_callback_t = std::function<void (WFDNSTask *)>;
 
+using timer_callback_t = std::function<void (WFTimerTask *)>;
+
 class WFTaskFactory
 {
 public:
@@ -28,7 +30,10 @@ public:
 
 	static WFDNSTask *create_dns_task(const std::string& host,
 									  unsigned short port,
-									  dns_callback_t callback);										
+									  dns_callback_t callback);	
+
+	static WFTimerTask *create_timer_task(unsigned int microseconds,
+										  timer_callback_t callback);									
 };
 
 template<class INPUT, class OUTPUT>

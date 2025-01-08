@@ -36,9 +36,7 @@ struct __header_line
 	char *buf;
 };
 
-int http_parser_add_header(const void *name, size_t name_len,
-						   const void *value, size_t value_len,
-						   http_parser_t *parser)
+int http_parser_add_header(const void *name, size_t name_len, const void *value, size_t value_len, http_parser_t *parser)
 {
 	size_t size = sizeof (struct __header_line) + name_len + value_len + 4;
 	struct __header_line *line;
@@ -99,9 +97,7 @@ int http_parser_set_version(const char *version, http_parser_t *parser)
 	return -1;
 }
 
-int http_parser_set_header(const void *name, size_t name_len,
-						   const void *value, size_t value_len,
-						   http_parser_t *parser)
+int http_parser_set_header(const void *name, size_t name_len, const void *value, size_t value_len, http_parser_t *parser)
 {
 	struct __header_line *line;
 	struct list_head *pos;
@@ -138,39 +134,35 @@ int http_parser_set_header(const void *name, size_t name_len,
 	return http_parser_add_header(name, name_len, value, value_len, parser);
 }
 
-static int __match_request_line(const char *method,
-								const char *uri,
-								const char *version,
-								http_parser_t *parser)
+static int __match_request_line(const char *method, const char *uri, const char *version, http_parser_t *parser)
 {
 	if (strcmp(version, "HTTP/1.0") == 0 || strncmp(version, "HTTP/0", 6) == 0)
 		parser->keep_alive = 0;
 
 	method = strdup(method);
-	if (method)
+	if (!method) 
+		return -1;
+	uri = strdup(uri);
+	if (!uri)
 	{
-		uri = strdup(uri);
-		if (uri)
-		{
-			version = strdup(version);
-			if (version)
-			{
-				free(parser->method);
-				free(parser->uri);
-				free(parser->version);
-				parser->method = (char *)method;
-				parser->uri = (char *)uri;
-				parser->version = (char *)version;
-				return 0;
-			}
-
-			free((char *)uri);
-		}
-
-		free((char *)method);
+		free(method);
+		return -1;
 	}
-
-	return -1;
+	version = strdup(version);
+	if (!version)
+	{
+		free(method);
+		free(uri);
+		return -1;
+	}	
+			
+	free(parser->method);
+	free(parser->uri);
+	free(parser->version);
+	parser->method = (char *)method;
+	parser->uri = (char *)uri;
+	parser->version = (char *)version;
+	return 0;
 }
 
 static int __match_status_line(const char *version, const char *code, const char *phrase, http_parser_t *parser)
@@ -182,35 +174,31 @@ static int __match_status_line(const char *version, const char *code, const char
 		parser->transfer_length = 0;
 
 	version = strdup(version);
-	if (version)
+	if (!version)
+		return -1;
+	code = strdup(code);
+	if (!code)
 	{
-		code = strdup(code);
-		if (code)
-		{
-			phrase = strdup(phrase);
-			if (phrase)
-			{
-				free(parser->version);
-				free(parser->code);
-				free(parser->phrase);
-				parser->version = (char *)version;
-				parser->code = (char *)code;
-				parser->phrase = (char *)phrase;
-				return 0;
-			}
-
-			free((char *)code);
-		}
-
-		free((char *)version);
+		free(version);
+		return -1;
 	}
-
-	return -1;
+	phrase = strdup(phrase);
+	if (!phrase)
+	{
+		free(version);
+		free(code);
+		return -1;
+	}
+	free(parser->version);
+	free(parser->code);
+	free(parser->phrase);
+	parser->version = (char *)version;
+	parser->code = (char *)code;
+	parser->phrase = (char *)phrase;
+	return 0;
 }
 
-static int __match_message_header(const char *name, size_t name_len,
-								  const char *value, size_t value_len,
-								  http_parser_t *parser)
+static int __match_message_header(const char *name, size_t name_len, const char *value, size_t value_len, http_parser_t *parser)
 {
 	switch (name_len)
 	{
@@ -254,8 +242,7 @@ static int __match_message_header(const char *name, size_t name_len,
 	return http_parser_add_header(name, name_len, value, value_len, parser);
 }
 
-static int __parse_start_line(const char *ptr, size_t len,
-							  http_parser_t *parser)
+static int __parse_start_line(const char *ptr, size_t len, http_parser_t *parser)
 {
 	char start_line[HTTP_START_LINE_MAX];
 	size_t min = MIN(HTTP_START_LINE_MAX, len);
@@ -317,8 +304,7 @@ static int __parse_start_line(const char *ptr, size_t len,
 	return 0;
 }
 
-static int __parse_header_name(const char *ptr, size_t len,
-							   http_parser_t *parser)
+static int __parse_header_name(const char *ptr, size_t len, http_parser_t *parser)
 {
 	size_t min = MIN(HTTP_HEADER_NAME_MAX, len);
 	size_t i;
@@ -352,8 +338,7 @@ static int __parse_header_name(const char *ptr, size_t len,
 	return 0;
 }
 
-static int __parse_header_value(const char *ptr, size_t len,
-                                http_parser_t *parser)
+static int __parse_header_value(const char *ptr, size_t len, http_parser_t *parser)
 {
     char  header_value[HTTP_HEADER_VALUE_MAX];
     const char *end = ptr + len;
@@ -473,8 +458,7 @@ int http_parser_header_complete(http_parser_t *parser)
 
 #define CHUNK_SIZE_MAX		(2 * 1024 * 1024 * 1024U - HTTP_CHUNK_LINE_MAX - 4)
 
-static int __parse_chunk_data(const char *ptr, size_t len,
-							  http_parser_t *parser)
+static int __parse_chunk_data(const char *ptr, size_t len, http_parser_t *parser)
 {
 	char chunk_line[HTTP_CHUNK_LINE_MAX];
 	size_t min = MIN(HTTP_CHUNK_LINE_MAX, len);
@@ -523,8 +507,7 @@ static int __parse_chunk_data(const char *ptr, size_t len,
 	return 0;
 }
 
-static int __parse_trailer_part(const char *ptr, size_t len,
-								http_parser_t *parser)
+static int __parse_trailer_part(const char *ptr, size_t len, http_parser_t *parser)
 {
 	size_t min = MIN(HTTP_TRAILER_LINE_MAX, len);
 	size_t i;
@@ -643,8 +626,7 @@ int http_parser_append_message(const void *buf, size_t *n, http_parser_t *parser
 	return 1;
 }						   
 
-int http_parser_get_body(const void **body, size_t *size,
-								http_parser_t *parser)
+int http_parser_get_body(const void **body, size_t *size, http_parser_t *parser)
 {
 	if (parser->complete && parser->header_state == HPS_HEADER_COMPLETE)
 	{
@@ -656,9 +638,7 @@ int http_parser_get_body(const void **body, size_t *size,
 	return 1;
 }
 
-int http_header_cursor_next(const void **name, size_t *name_len,
-							const void **value, size_t *value_len,
-							http_header_cursor_t *cursor)
+int http_header_cursor_next(const void **name, size_t *name_len, const void **value, size_t *value_len, http_header_cursor_t *cursor)
 {
 	struct __header_line *line;
 	if (cursor->next->next != cursor->head)
@@ -720,9 +700,7 @@ void http_parser_deinit(http_parser_t *parser)
 	free(parser->msgbuf);
 }
 
-int http_header_cursor_find(const void *name, size_t name_len,
-							const void **value, size_t *value_len,
-							http_header_cursor_t *cursor)
+int http_header_cursor_find(const void *name, size_t name_len, const void **value, size_t *value_len, http_header_cursor_t *cursor)
 {
 	struct __header_line *line;
 	while (cursor->next->next != cursor->head)

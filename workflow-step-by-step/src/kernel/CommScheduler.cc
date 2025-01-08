@@ -26,9 +26,7 @@ static struct timespec *__get_abstime(int timeout, struct timespec *ts)
 	return ts;
 }
 
-int CommSchedTarget::init(const struct sockaddr *addr, socklen_t addrlen,
-						  int connect_timeout, int response_timeout,
-						  size_t max_connections)
+int CommSchedTarget::init(const struct sockaddr *addr, socklen_t addrlen, int connect_timeout, int response_timeout, size_t max_connections)
 {
 	int ret;
 
@@ -38,8 +36,7 @@ int CommSchedTarget::init(const struct sockaddr *addr, socklen_t addrlen,
 		return -1;
 	}
 
-	if (this->CommTarget::init(addr, addrlen, connect_timeout,
-							   response_timeout) >= 0)
+	if (this->CommTarget::init(addr, addrlen, connect_timeout, response_timeout) >= 0)
 	{
 		ret = pthread_mutex_init(&this->mutex, NULL);
 		if (ret == 0)

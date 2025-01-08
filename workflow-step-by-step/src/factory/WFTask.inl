@@ -48,8 +48,7 @@ protected:
 	std::function<void (WFNetworkTask<REQ, RESP> *)> prepare;
 
 public:
-	WFClientTask(CommSchedObject *object, CommScheduler *scheduler,
-				 std::function<void (WFNetworkTask<REQ, RESP> *)>&& cb) :
+	WFClientTask(CommSchedObject *object, CommScheduler *scheduler, std::function<void (WFNetworkTask<REQ, RESP> *)>&& cb) :
 		WFNetworkTask<REQ, RESP>(object, scheduler, std::move(cb))
 	{}
 

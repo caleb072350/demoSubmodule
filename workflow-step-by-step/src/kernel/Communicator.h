@@ -228,13 +228,7 @@ public:
 	int request(CommSession *session, CommTarget *target);
 	int reply(CommSession *session);
 
-	int bind(CommService *service);
-	void unbind(CommService *service);
-
 	int sleep(SleepSession *session);
-
-	int io_bind(IOService *service);
-	void io_unbind(IOService *service);
 
 public:
 	int increase_handler_thread();
@@ -280,11 +274,10 @@ private:
 	void handle_incoming_request(struct poller_result *res);
 	void handle_incoming_reply(struct poller_result *res);
 
-    void handle_request_result(struct poller_result *res);
-	void handle_reply_result(struct poller_result *res);
-
 	void handle_read_result(struct poller_result *res);
 	void handle_write_result(struct poller_result *res);
+
+	void handle_sleep_result(struct poller_result *res);
 
 	void handle_connect_result(struct poller_result *res);
 

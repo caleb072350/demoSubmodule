@@ -24,7 +24,8 @@ struct __thrdpool_task_entry
 
 static pthread_t __zero_tid;
 
-static void *__thrdpool_routine(void *arg) {
+static void *__thrdpool_routine(void *arg) 
+{
     thrdpool_t *pool = (thrdpool_t *)arg;
     struct list_head **pos = &pool->task_queue.next;
     struct __thrdpool_task_entry *entry;
@@ -77,12 +78,14 @@ static void __thrdpool_destroy_locks(thrdpool_t *pool) {
 static void __thrdpool_terminate(thrdpool_t *pool) {
     pthread_cond_t term = PTHREAD_COND_INITIALIZER;
     pthread_mutex_lock(&pool->mutex);
+
     pool->terminate = &term;
     pthread_cond_broadcast(&pool->cond);
     while (pool->nthreads > 0) 
         pthread_cond_wait(&term, &pool->mutex);
     
     pthread_mutex_unlock(&pool->mutex);
+
     if (memcmp(&pool->tid, &__zero_tid, sizeof(pthread_t)) != 0)
         pthread_join(pool->tid, NULL);
 }
@@ -98,8 +101,10 @@ static int __thrdpool_create_threads(size_t nthreads, thrdpool_t *pool) {
             pthread_attr_setstacksize(&attr, pool->stacksize);
         while (pool->nthreads < nthreads) {
             ret = pthread_create(&tid, &attr, __thrdpool_routine, pool);
-            if (ret == 0) pool->nthreads++;
-            else break;
+            if (ret == 0) 
+                pool->nthreads++;
+            else 
+                break;
         }
         pthread_attr_destroy(&attr);
         if (pool->nthreads == nthreads) return 0;
@@ -139,8 +144,7 @@ thrdpool_t *thrdpool_create(size_t nthreads, size_t stacksize)
     return NULL;
 }
 
-void __thrdpool_schedule(const struct thrdpool_task *task, void *buf, 
-                                thrdpool_t *pool)
+void __thrdpool_schedule(const struct thrdpool_task *task, void *buf, thrdpool_t *pool)
 {
     struct __thrdpool_task_entry *entry = (struct __thrdpool_task_entry*)buf;
     entry->task = *task;
@@ -186,8 +190,7 @@ int thrdpool_in_pool(thrdpool_t *pool)
     return pthread_getspecific(pool->key) == (void*)pool;
 }
 
-void thrdpool_destroy(void (*pending)(const struct thrdpool_task *),
-                      thrdpool_t *pool)
+void thrdpool_destroy(void (*pending)(const struct thrdpool_task *), thrdpool_t *pool)
 {
     struct __thrdpool_task_entry *entry;
     struct list_head *pos, *tmp;

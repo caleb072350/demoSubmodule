@@ -133,9 +133,7 @@ int HttpMessage::encode(struct iovec vectors[], int max)
 
     i = 6;
     http_header_cursor_init(&cursor, this->parser);
-    while (http_header_cursor_next(&header.name, &header.name_len,
-                                   &header.value, &header.value_len,
-                                   &cursor) == 0)
+    while (http_header_cursor_next(&header.name, &header.name_len, &header.value, &header.value_len, &cursor) == 0)
     {
         if (i == max)
             break;
