@@ -5,7 +5,6 @@
 #include "StringUtil.h"
 #include "WFGlobal.h"
 #include "HttpUtil.h"
-#include "logger.h"
 
 using namespace protocol;
 

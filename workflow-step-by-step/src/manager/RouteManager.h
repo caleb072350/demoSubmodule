@@ -21,7 +21,6 @@ public:
 		CommSchedObject *request_object;
 
 	public:
-	//	RouteResult(): cookie(NULL), request_object(NULL) { }
 		void clear() { cookie = NULL; request_object = NULL; }
 	};
 
@@ -41,11 +40,7 @@ public:
 	};
 
 public:
-	int get(TransportType type,
-			const struct addrinfo *addrinfo,
-			const std::string& other_info,
-			const struct EndpointParams *endpoint_params,
-			RouteResult& result);
+	int get(TransportType type, const struct addrinfo *addrinfo, const std::string& other_info, const struct EndpointParams *endpoint_params, RouteResult& result);
 
 	RouteManager()
 	{

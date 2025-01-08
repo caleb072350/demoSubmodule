@@ -75,8 +75,7 @@ protected:
 	std::function<void (WFThreadTask<INPUT, OUTPUT> *)> callback;
 
 public:
-	WFThreadTask(ExecQueue *queue, Executor *executor,
-				 std::function<void (WFThreadTask<INPUT, OUTPUT> *)>&& cb) :
+	WFThreadTask(ExecQueue *queue, Executor *executor, std::function<void (WFThreadTask<INPUT, OUTPUT> *)>&& cb) :
 		ExecRequest(queue, executor),
 		callback(std::move(cb))
 	{
@@ -175,8 +174,7 @@ protected:
 	std::function<void (WFNetworkTask<REQ, RESP> *)> callback;
 
 protected:
-	WFNetworkTask(CommSchedObject *object, CommScheduler *scheduler,
-				  std::function<void (WFNetworkTask<REQ, RESP> *)>&& cb) :
+	WFNetworkTask(CommSchedObject *object, CommScheduler *scheduler, std::function<void (WFNetworkTask<REQ, RESP> *)>&& cb) :
 		CommRequest(object, scheduler),
 		callback(std::move(cb))
 	{

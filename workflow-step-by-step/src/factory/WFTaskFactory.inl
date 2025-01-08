@@ -165,10 +165,7 @@ public:
 		init_with_uri();
 	}
 
-	void init(TransportType type,
-			  const struct sockaddr *addr,
-			  socklen_t addrlen,
-			  const std::string& info);
+	void init(TransportType type, const struct sockaddr *addr, socklen_t addrlen, const std::string& info);
 
 	const ParsedURI *get_original_uri() const { return &original_uri_; }
 	const ParsedURI *get_current_uri() const { return &uri_; }
@@ -180,8 +177,7 @@ public:
 		retry_times_ = 0;
 	}
 
-	void set_redirect(TransportType type, const struct sockaddr *addr,
-					  socklen_t addrlen, const std::string& info)
+	void set_redirect(TransportType type, const struct sockaddr *addr, socklen_t addrlen, const std::string& info)
 	{
 		redirect_ = true;
 		init(type, addr, addrlen, info);
@@ -266,10 +262,7 @@ private:
 };
 
 template<class REQ, class RESP, typename CTX>
-void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
-											   const struct sockaddr *addr,
-											   socklen_t addrlen,
-											   const std::string& info)
+void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type, const struct sockaddr *addr, socklen_t addrlen, const std::string& info)
 {
 	is_sockaddr_ = true;
 	init_state_ = 0;
@@ -287,8 +280,7 @@ void WFComplexClientTask<REQ, RESP, CTX>::init(TransportType type,
 	addrinfo.ai_socktype = SOCK_STREAM;
 	addrinfo.ai_protocol = 0;
 
-	if (WFGlobal::get_route_manager()->get(type, &addrinfo, info_, params,
-									route_result_) < 0)
+	if (WFGlobal::get_route_manager()->get(type, &addrinfo, info_, params, route_result_) < 0)
 	{
 		this->state = WFT_STATE_SYS_ERROR;
 		this->error = errno;

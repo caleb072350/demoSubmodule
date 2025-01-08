@@ -103,27 +103,10 @@ public:
 		return ret;
 	}
 
-	/* for services. */
-	int reply(CommSession *session)
-	{
-		return this->comm.reply(session);
-	}
-
 	/* for sleepers. */
 	int sleep(SleepSession *session)
 	{
 		return this->comm.sleep(session);
-	}
-	
-public:
-	int increase_handler_thread()
-	{
-		return this->comm.increase_handler_thread();
-	}
-
-	int is_handler_thread()
-	{
-		return this->comm.is_handler_thread();
 	}
 
 private:
